@@ -152,3 +152,14 @@ test('admin: login required; deliver and cancel can be undone before their email
   const late = await as('POST', `/api/admin/bookings/${id}/undo`, { action: 'cancel', previous: 'shot' });
   assert.equal(late.status, 409, 'too late once the client has been emailed');
 });
+
+test('after an update, pages point at the new scripts and styles (never a stale copy)', async () => {
+  for (const p of ['/', '/book', '/admin']) {
+    const html = (await call('GET', p)).data;
+    assert.match(html, /href="\/styles\.css\?v=[0-9a-f]{10}"/, p);
+    assert.match(html, /src="\/common\.js\?v=[0-9a-f]{10}"/, p);
+  }
+  const stamped = await call('GET', '/styles.css?v=abc123');
+  assert.match(stamped.headers.get('cache-control'), /immutable/);
+  assert.equal((await call('GET', '/styles.css')).headers.get('cache-control'), 'no-cache');
+});

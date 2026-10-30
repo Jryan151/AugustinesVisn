@@ -132,7 +132,11 @@ function serveStatic(dir, req, res, rewrites) {
   if (!st.isFile()) return false;
   const ext = path.extname(file).toLowerCase();
   res.setHeader('Content-Type', TYPES[ext] || 'application/octet-stream');
-  res.setHeader('Cache-Control', ext === '.html' ? 'no-cache' : /\.(mp4|webm|jpg|jpeg|png|webp)$/.test(ext) ? 'public, max-age=2592000' : 'public, max-age=3600');
+  // Scripts and styles: kept for a year when the page asked with its build stamp (?v=…, a new one every update);
+  // otherwise checked every time. Pages are always checked.
+  const stamped = /[?&]v=[0-9a-f]+/.test(req.url);
+  res.setHeader('Cache-Control', ext === '.html' ? 'no-cache' : /\.(mp4|webm|jpg|jpeg|png|webp)$/.test(ext) ? 'public, max-age=2592000'
+    : stamped ? 'public, max-age=31536000, immutable' : 'no-cache');
   // Video needs byte ranges, or Safari won't play it.
   const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
   if (range && (ext === '.mp4' || ext === '.webm')) {
