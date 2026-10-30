@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Book a session · Augustine’s Vision</title>
+  <meta name="theme-color" content="#08080b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Space+Grotesk:wght@400;600&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="bg"></div>
+
+  <nav class="nav glass" aria-label="Main">
+    <a class="brand" href="/">Augustine’s Vision</a>
+    <div class="nav-links"><a href="/#packages">Packages</a></div>
+  </nav>
+
+  <main class="book">
+    <div class="wrap narrow">
+      <h1 class="sr-only">Book a session</h1>
+      <ol class="progress" aria-label="Booking steps">
+        <li data-step="1">1 · Package</li>
+        <li data-step="2">2 · Time</li>
+        <li data-step="3">3 · Details &amp; deposit</li>
+      </ol>
+
+      <!-- Step 1 -->
+      <section class="panel" id="step-1" aria-labelledby="s1-title">
+        <h2 id="s1-title">Pick a package</h2>
+        <div class="choice-list" id="package-choices" aria-busy="true">
+          <div class="choice skeleton"><span>Package<small>00 min · 00 photos</small></span><span>$000</span></div>
+          <div class="choice skeleton"><span>Package<small>00 min · 00 photos</small></span><span>$000</span></div>
+          <div class="choice skeleton"><span>Package<small>00 min · 00 photos</small></span><span>$000</span></div>
+        </div>
+      </section>
+
+      <!-- Step 2 -->
+      <section class="panel" id="step-2" hidden aria-labelledby="s2-title">
+        <h2 id="s2-title">Pick a time</h2>
+        <p class="muted" id="s2-sub">Every session is at sunrise or sunset, so times change a little each day.</p>
+        <div id="days"></div>
+        <div id="slots" class="choice-list" data-gap></div>
+        <div class="step-actions">
+          <button class="btn btn-text" type="button" data-back="1">← Packages</button>
+          <button class="btn" type="button" id="more-days" hidden>Show later dates</button>
+        </div>
+      </section>
+
+      <!-- Step 3 -->
+      <section class="panel" id="step-3" hidden aria-labelledby="s3-title">
+        <h2 id="s3-title">Your details</h2>
+        <dl class="summary" id="summary"></dl>
+        <div class="error-box" id="form-error" role="alert" hidden></div>
+        <form id="details" novalidate>
+          <div class="field"><label for="name">Name</label><input id="name" name="name" type="text" autocomplete="name" required maxlength="100"></div>
+          <div class="row">
+            <div class="field"><label for="email">Email <span class="hint">(your confirmation goes here)</span></label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="200"></div>
+            <div class="field"><label for="phone">Phone <span class="hint">(for the day of the shoot)</span></label><input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="40"></div>
+          </div>
+          <div class="field"><label for="notes">Anything I should know? <span class="hint">(optional)</span></label><textarea id="notes" name="notes" maxlength="1000"></textarea></div>
+          <div class="terms" id="terms"></div>
+          <label class="check"><input type="checkbox" id="agree" name="agree" required> <span>I agree to the booking terms above.</span></label>
+          <div class="step-actions">
+            <button class="btn btn-text" type="button" data-back="2">← Times</button>
+            <button class="btn btn-primary" type="submit" id="pay">Pay deposit</button>
+          </div>
+          <p class="muted fine">You’ll pay on Stripe’s secure page. Your time is held for 30 minutes while you do.</p>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script src="/common.js"></script>
+  <script src="/book.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "augustinesvisn",
+  "version": "0.1.0",
+  "description": "Booking site for photography sessions: packages, golden-hour times, deposit, prep and delivery.",
+  "main": "server.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\""
+  },
+  "engines": { "node": ">=22.13" }
+}

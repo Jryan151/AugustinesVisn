@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>About your shoot · Augustine’s Vision</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#08080b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Space+Grotesk:wght@400;600&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="nav glass" aria-label="Main"><a class="brand" href="/">Augustine’s Vision</a></nav>
+  <main class="book">
+    <div class="wrap narrow">
+      <section class="panel">
+        <h1 class="display">About your shoot</h1>
+        <p class="muted" id="when">Two minutes, so I arrive with a plan.</p>
+        <div class="error-box" id="error" role="alert" hidden></div>
+        <form id="prep" novalidate hidden>
+          <div class="field"><label for="location">Where would you like to shoot? <span class="hint">(a place, an address, or “surprise me”)</span></label><input id="location" name="location" type="text" maxlength="300"></div>
+          <div class="field"><label for="look">What look are you going for?</label><textarea id="look" name="look" maxlength="1000" placeholder="Moody and cinematic, bright and natural, editorial…"></textarea></div>
+          <div class="field"><label for="who">Who or what are we shooting?</label><textarea id="who" name="who" maxlength="500" placeholder="Names and how many people, or the car’s make, model and colour"></textarea></div>
+          <div class="field"><label for="references">Reference photos <span class="hint">(links to Instagram, Pinterest, anything)</span></label><textarea id="references" name="references" maxlength="1000"></textarea></div>
+          <div class="field"><label for="other">Anything else?</label><textarea id="other" name="other" maxlength="1000"></textarea></div>
+          <div class="step-actions"><span></span><button class="btn btn-primary" type="submit" id="save">Send</button></div>
+        </form>
+      </section>
+    </div>
+  </main>
+  <script src="/common.js"></script>
+  <script src="/prep.js"></script>
+</body>
+</html>

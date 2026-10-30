@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Admin · Augustine’s Vision</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#08080b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Space+Grotesk:wght@400;600&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="nav glass" aria-label="Admin">
+    <a class="brand" href="/">Augustine’s Vision</a>
+    <div class="nav-links"><button class="btn btn-text" type="button" id="logout" hidden>Log out</button></div>
+  </nav>
+
+  <main class="admin">
+    <div class="wrap">
+      <section class="panel narrow" id="login" hidden>
+        <h1 class="display">Admin</h1>
+        <div class="error-box" id="login-error" role="alert" hidden></div>
+        <form id="login-form">
+          <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
+          <button class="btn btn-primary" type="submit">Log in</button>
+        </form>
+      </section>
+
+      <div id="app" hidden>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="pipeline">Bookings</button>
+          <button role="tab" aria-selected="false" data-tab="settings">Availability</button>
+          <button role="tab" aria-selected="false" data-tab="packages">Packages</button>
+        </div>
+
+        <section id="tab-pipeline" role="tabpanel">
+          <div class="board" id="board"></div>
+        </section>
+
+        <section id="tab-settings" role="tabpanel" hidden>
+          <form class="panel narrow" id="settings-form">
+            <h2>When people can book</h2>
+            <div class="field"><label>Sunrise sessions on</label><div class="weekdays" id="morning-days"></div></div>
+            <div class="field"><label>Sunset sessions on</label><div class="weekdays" id="evening-days"></div></div>
+            <div class="row">
+              <div class="field"><label for="weeklyCap">Shoots per week <span class="hint">(what you can edit on time)</span></label><input id="weeklyCap" type="number" min="1" max="50" inputmode="numeric"></div>
+              <div class="field"><label for="minNoticeHours">Notice needed <span class="hint">(hours)</span></label><input id="minNoticeHours" type="number" min="0" max="720" inputmode="numeric"></div>
+              <div class="field"><label for="maxDaysAhead">Book up to <span class="hint">(days ahead)</span></label><input id="maxDaysAhead" type="number" min="1" max="365" inputmode="numeric"></div>
+            </div>
+            <div class="row">
+              <div class="field"><label for="morningLeadMinutes">Sunrise sessions start <span class="hint">(minutes before sunrise)</span></label><input id="morningLeadMinutes" type="number" min="0" max="90" inputmode="numeric"></div>
+              <div class="field"><label for="eveningTailMinutes">Sunset sessions end <span class="hint">(minutes after sunset)</span></label><input id="eveningTailMinutes" type="number" min="0" max="90" inputmode="numeric"></div>
+            </div>
+            <div class="field"><label for="blockedDates">Days off <span class="hint">(one date per line, like 2026-12-25)</span></label><textarea id="blockedDates"></textarea></div>
+            <div class="field"><label for="terms">Booking terms <span class="hint">(clients agree to these before paying)</span></label><textarea id="terms" rows="5"></textarea></div>
+            <button class="btn btn-primary" type="submit">Save</button>
+          </form>
+        </section>
+
+        <section id="tab-packages" role="tabpanel" hidden>
+          <div id="package-forms"></div>
+          <button class="btn" type="button" id="add-package">Add a package</button>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="/common.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>
