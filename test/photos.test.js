@@ -87,6 +87,14 @@ test('client photos: admin only, real images only, private until delivered, then
 
   const g = await call('GET', '/api/gallery/' + b.token);
   assert.equal(g.data.photos.length, 2);
+  // Balance not paid: no clean photo, no download, no zip. (Without ffmpeg there's no proof either: never the clean one instead.)
+  assert.equal(g.data.locked, true); assert.equal(g.data.balanceCents, 15000);
+  assert.equal((await call('GET', `/g/${b.token}/${up1.data.photo.id}/original`)).status, 402);
+  assert.equal((await call('GET', `/g/${b.token}/all.zip`)).status, 402);
+  assert.equal((await call('GET', `/g/${b.token}/${up1.data.photo.id}/web`)).status, 503);
+  const marked = await admin('POST', `/api/admin/bookings/${b.id}/balance-paid`, {});
+  assert.equal(marked.data.booking.balance_paid_by, 'marked');
+  assert.equal((await call('GET', '/api/gallery/' + b.token)).data.locked, false);
   const orig = await call('GET', `/g/${b.token}/${up1.data.photo.id}/original`);
   assert.equal(orig.status, 200);
   assert.ok(orig.data.equals(JPG), 'the client gets exactly the uploaded file');

@@ -144,7 +144,7 @@
       <div><dt>Package</dt><dd>${esc(p.name)}</dd></div>
       <div><dt>When</dt><dd>${day(state.date, { weekday: 'long', month: 'long' })}, <time datetime="${s.start}">${time(s.start)}</time>–<time datetime="${s.end}">${time(s.end)}</time></dd></div>
       <div><dt>Deposit today</dt><dd class="price">${money(p.deposit_cents)}</dd></div>
-      <div><dt>Balance at the shoot</dt><dd class="price">${money(p.price_cents - p.deposit_cents)}</dd></div>`;
+      <div><dt>Balance, before download</dt><dd class="price">${money(p.price_cents - p.deposit_cents)}</dd></div>`;
     $('terms').textContent = state.terms;
     $('pay').textContent = `Pay ${money(p.deposit_cents)} deposit`;
     $('form-error').hidden = true;

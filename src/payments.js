@@ -49,12 +49,32 @@ async function startCheckout(booking, pkg, idempotencyKey) {
     mode: 'payment',
     customer_email: booking.client_email,
     client_reference_id: booking.token,
-    metadata: { booking: booking.token },
+    metadata: { booking: booking.token, kind: 'deposit' },
     line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: booking.deposit_cents, product_data: { name: `Deposit: ${pkg.name} session` } } }],
     success_url: `${config.baseUrl}/booked?b=${booking.token}`,
     cancel_url: `${config.baseUrl}/book?p=${encodeURIComponent(pkg.slug)}&released=${booking.token}`,
     expires_at: Math.floor(new Date(booking.hold_expires_at).getTime() / 1000),
   }, 'checkout-' + idempotencyKey);
+  return { url: session.url, sessionId: session.id };
+}
+
+/**
+ * Starts payment of the balance, from the client's gallery. Paid, it unlocks their clean photos (webhook, kind
+ * 'balance'). Returns { url, sessionId }.
+ */
+async function startBalanceCheckout(booking, pkg, idempotencyKey) {
+  const due = booking.price_cents - booking.deposit_cents;
+  if (devMode()) return { url: `/api/dev/pay-balance/${booking.token}`, sessionId: null };
+  if (!enabled()) throw new Error('Online payment isn\u2019t open yet. Please pay in person.');
+  const session = await stripe('POST', '/checkout/sessions', {
+    mode: 'payment',
+    customer_email: booking.client_email,
+    client_reference_id: booking.token,
+    metadata: { booking: booking.token, kind: 'balance' },
+    line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: due, product_data: { name: `Balance: ${pkg.name} session` } } }],
+    success_url: `${config.baseUrl}/gallery/${booking.token}?paid=1`,
+    cancel_url: `${config.baseUrl}/gallery/${booking.token}`,
+  }, 'balance-' + idempotencyKey);
   return { url: session.url, sessionId: session.id };
 }
 
@@ -74,4 +94,4 @@ function verifyWebhook(rawBody, header, secret = config.stripeWebhookSecret, now
   try { return JSON.parse(rawBody); } catch (e) { return null; }
 }
 
-module.exports = { startCheckout, verifyWebhook, enabled, devMode, formEncode };
+module.exports = { startBalanceCheckout, startCheckout, verifyWebhook, enabled, devMode, formEncode };

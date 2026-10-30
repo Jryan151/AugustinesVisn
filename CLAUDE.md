@@ -25,6 +25,8 @@ Flashy is not a reason. Every feature has to fit with the others, not compete wi
 - Uploads stream to disk (never whole in memory), are checked by their bytes (JPG/PNG/WebP), and the original is
   kept untouched for the client. Pages show the web copies, with width/height so nothing jumps.
 - Client photos are private: only reachable through the booking's token, and only once it's delivered.
+- Until the balance is paid, a client only ever gets the watermarked proofs: never a clean copy, never the original,
+  and if a proof can't be made, a placeholder instead. Proof and clean addresses differ, so caches can't mix them.
 - Skeletons only where there's nothing cached, and only visible after 300 ms (the `.skeleton` class does this).
 
 ## Code style

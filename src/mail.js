@@ -38,7 +38,7 @@ function compose(kind, b, pkg) {
     case 'confirmation': return {
       to: b.client_email,
       subject: `You’re booked: ${pkg.name}, ${when(b)}`,
-      body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} session is booked for ${when(b)}. Your ${money(b.deposit_cents)} deposit is in, and the ${balance} balance is due at the shoot.\n\nOne thing to do now: tell me about the shoot (location idea, the look you want, who or what we’re shooting). It takes two minutes:\n${prepLink}\n\nYour booking: ${statusLink}${sign}`,
+      body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} session is booked for ${when(b)}. Your ${money(b.deposit_cents)} deposit is in, and the ${balance} balance unlocks your photos for download (pay it at the shoot or online in your gallery).\n\nOne thing to do now: tell me about the shoot (location idea, the look you want, who or what we’re shooting). It takes two minutes:\n${prepLink}\n\nYour booking: ${statusLink}${sign}`,
     };
     case 'admin_new': return {
       to: config.adminEmail,
@@ -55,7 +55,17 @@ function compose(kind, b, pkg) {
       subject: `Tomorrow: your ${pkg.name} session`,
       body: `Hi ${first(b.client_name)},\n\nSee you ${when(b)}.${prepLocation(b) ? `\nWhere: ${prepLocation(b)}` : ''}\n\nI’ll check the weather in the morning and message you if anything changes.${sign}`,
     };
-    case 'gallery': return {
+    case 'unlocked': return {
+      to: b.client_email,
+      subject: `Your photos are ready to download`,
+      body: `Hi ${first(b.client_name)},\n\nThanks, your balance is paid. Your ${pkg.name} photos are now unlocked in full quality, with no watermark:\n${b.gallery_url}\n\nDownload the ones you love, or all of them at once, and keep a copy somewhere safe.${sign}`,
+    };
+    case 'gallery': if (b.price_cents - b.deposit_cents > 0 && !b.balance_paid_at && /\/gallery\//.test(b.gallery_url || '')) return {
+      to: b.client_email,
+      subject: `Your photos are ready to see`,
+      body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} photos are ready to view:\n${b.gallery_url}\n\nThe previews carry my watermark. Once your ${balance} balance is paid (right in the gallery, or in person), they unlock in full quality to download.${sign}`,
+    };
+    return {
       to: b.client_email,
       subject: `Your photos are ready`,
       body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} photos are ready:\n${b.gallery_url}\n\nDownload the ones you love, or all of them at once, and keep a copy somewhere safe.${sign}`,

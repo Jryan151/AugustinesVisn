@@ -16,7 +16,7 @@
       <div><dt>Session</dt><dd>${esc(b.package.name)}</dd></div>
       <div><dt>When</dt><dd>${esc(b.when)}</dd></div>
       <div><dt>Deposit paid</dt><dd class="price">${money(b.depositCents)}</dd></div>
-      <div><dt>Balance at the shoot</dt><dd class="price">${money(b.balanceCents)}</dd></div></dl>`;
+      <div><dt>Balance, before download</dt><dd class="price">${money(b.balanceCents)}</dd></div></dl>`;
     const prep = `<a class="btn ${b.prepped ? '' : 'btn-primary'}" href="/prep/${encodeURIComponent(token)}">${b.prepped ? 'Update the shoot details' : 'Tell me about the shoot'}</a>`;
     switch (b.status) {
       case 'booked': case 'prepped':

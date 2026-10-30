@@ -147,10 +147,45 @@ function cancel(id) {
   });
 }
 
-/** Undo for deliver and cancel: only while their email hasn't left. */
+/* ---------- the balance: paying it unlocks the clean, full-quality photos ---------- */
+
+/** Nothing left to pay (balance paid, or a package with no balance) means the clean photos are open to the client. */
+const isUnlocked = (b) => !!b.balance_paid_at || b.price_cents - b.deposit_cents <= 0;
+
+/**
+ * The balance is paid: `by` is 'online' (Stripe's webhook) or 'marked' (the photographer, in Admin). Safe to call
+ * twice. If the gallery has already been sent, the client is emailed that their photos are unlocked; for a mark by
+ * the photographer that email waits a few seconds, for Undo.
+ */
+function markBalancePaid(b, by, sessionId) {
+  if (!b) throw new HttpError(404, 'No such booking.');
+  if (!['booked', 'prepped', 'shot', 'editing', 'delivered'].includes(b.status)) throw new HttpError(400, `A ${b.status} booking has no balance to take.`);
+  if (b.balance_paid_at) return byId(b.id);
+  const iso = db.nowIso();
+  return db.tx(() => {
+    db.run('UPDATE bookings SET balance_paid_at = ?, balance_paid_by = ?, balance_session_id = COALESCE(?, balance_session_id), updated_at = ? WHERE id = ?',
+      [iso, by, sessionId || null, iso, b.id]);
+    const fresh = byId(b.id);
+    if (fresh.status === 'delivered') mail.queue('unlocked', fresh, { delayMs: by === 'marked' ? UNDO_MS : 0 });
+    return fresh;
+  });
+}
+
+/** Undo for deliver, cancel and "balance paid": only while their email hasn't left. */
 function undo(id, action, previous) {
   const b = byId(id);
   if (!b) throw new HttpError(404, 'No such booking.');
+  if (action === 'balance') {
+    if (!b.balance_paid_at || b.balance_paid_by !== 'marked') throw new HttpError(400, 'Nothing to undo.');
+    return db.tx(() => {
+      const pulled = mail.unqueue('unlocked', id);
+      if (!pulled && db.get("SELECT 1 FROM outbox WHERE booking_id = ? AND kind = 'unlocked' AND status = 'sent'", [id])) {
+        throw new HttpError(409, 'Too late to undo: the client has already been told.');
+      }
+      db.run('UPDATE bookings SET balance_paid_at = NULL, balance_paid_by = NULL, updated_at = ? WHERE id = ?', [db.nowIso(), id]);
+      return byId(id);
+    });
+  }
   if (!db.ACTIVE.includes(previous)) throw new HttpError(400, 'Nothing to undo.');
   const kind = action === 'deliver' ? 'gallery' : action === 'cancel' ? 'cancelled' : null;
   const expected = action === 'deliver' ? 'delivered' : 'cancelled';
@@ -181,6 +216,7 @@ function publicView(b) {
     name: b.client_name, depositCents: b.deposit_cents, balanceCents: b.price_cents - b.deposit_cents,
     prepped: !!b.prepped_at, prep: b.prep_json ? JSON.parse(b.prep_json) : null,
     galleryUrl: b.status === 'delivered' ? b.gallery_url : null,
+    unlocked: isUnlocked(b),
   };
 }
 
@@ -202,4 +238,4 @@ function remember(key, status, body) {
   db.run('INSERT OR IGNORE INTO idempotency (key, status, body, created_at) VALUES (?,?,?,?)', [key, status, JSON.stringify(body), db.nowIso()]);
 }
 
-module.exports = { createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };
+module.exports = { isUnlocked, markBalancePaid, createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };

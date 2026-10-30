@@ -34,6 +34,8 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+/* "hidden" always wins, whatever display a class gives (buttons, flex panels). */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -342,3 +344,12 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 .framer-zoom input { width: 100%; accent-color: var(--accent); min-height: 44px; }
 img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--zoom, 1)); }
 .section { scroll-margin-top: 88px; }
+
+/* ---------- client gallery: before the balance is paid ---------- */
+.unlock { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.unlock p { margin: 0; }
+.unlock-title { font-size: 1.3rem; margin: 0 0 4px; }
+.grid figure.not-ready { aspect-ratio: 3 / 2; display: grid; place-items: center; }
+.grid figure.not-ready::after { content: 'Preview on its way'; color: var(--muted); font-size: 14px; }
+.grid figure.not-ready img { display: none; }
+.card .balance { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }

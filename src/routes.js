@@ -15,11 +15,13 @@
      GET  /api/dev/pay/:token           development only: pretend the deposit was paid
      GET  /api/gallery/:token           a delivered client's photos (list)
      GET  /g/:token/:photo/:size        one photo (thumb, web, original = download)
-     GET  /g/:token/all.zip             every photo in one download
+     GET  /g/:token/all.zip             every photo in one download (once the balance is paid)
+     POST /api/gallery/:token/pay       pay the balance (Stripe), which unlocks the clean photos
+     GET  /api/dev/pay-balance/:token   development only: pretend the balance was paid
    Admin (logged in):
      POST /api/admin/login · /logout · GET /me
      GET  /api/admin/bookings           the pipeline
-     POST /api/admin/bookings/:id/status · /deliver · /cancel · /undo
+     POST /api/admin/bookings/:id/status · /deliver · /cancel · /balance-paid · /undo
      GET/PUT /api/admin/settings
      POST /api/admin/packages · PUT /api/admin/packages/:id
      PUT/DELETE /api/admin/packages/:id/image        the photo behind a package's card (PUT = raw image upload)
@@ -118,10 +120,21 @@ function build() {
     if (!event) throw new HttpError(400, 'Bad signature.');
     if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       const s = event.data && event.data.object;
-      if (s && s.payment_status === 'paid') bookings.markPaid(s.client_reference_id || (s.metadata || {}).booking, s.id);
+      if (s && s.payment_status === 'paid') {
+        const token = s.client_reference_id || (s.metadata || {}).booking;
+        if ((s.metadata || {}).kind === 'balance') { const b = bookings.byToken(token); if (b) bookings.markBalancePaid(b, 'online', s.id); }
+        else bookings.markPaid(token, s.id);
+      }
     }
     res.json(200, { received: true });
   }, { raw: true, bodyLimit: 512 * 1024 });
+
+  r.get('/api/dev/pay-balance/:token', (req, res) => {
+    if (!payments.devMode()) throw new HttpError(404, 'Not found.');
+    const b = bookings.byToken(req.params.token);
+    if (b) bookings.markBalancePaid(b, 'online', null);
+    res.redirect(`/gallery/${encodeURIComponent(req.params.token)}?paid=1`);
+  });
 
   r.get('/api/dev/pay/:token', (req, res) => {
     if (!payments.devMode()) throw new HttpError(404, 'Not found.');
@@ -133,7 +146,27 @@ function build() {
   r.get('/api/gallery/:token', (req, res) => {
     const b = galleries.openGallery(req.params.token);
     const pkg = db.get('SELECT name FROM packages WHERE id = ?', [b.package_id]);
-    res.json(200, { businessName: config.businessName, name: b.client_name, package: pkg.name, when: require('./mail').when(b), photos: galleries.list(b.id) });
+    res.json(200, { businessName: config.businessName, name: b.client_name, package: pkg.name, when: require('./mail').when(b),
+      locked: b.locked, balanceCents: b.locked ? b.price_cents - b.deposit_cents : 0, canPayOnline: payments.enabled() || payments.devMode(),
+      photos: galleries.list(b.id) });
+  });
+  // Pay the balance from the gallery (Stripe). Same Idempotency-Key, same checkout: a double tap never pays twice.
+  r.post('/api/gallery/:token/pay', async (req, res) => {
+    const key = String(req.headers['idempotency-key'] || '');
+    if (!/^[A-Za-z0-9-]{16,100}$/.test(key)) throw new HttpError(400, 'Missing Idempotency-Key.');
+    const done = bookings.recall('balance:' + key);
+    if (done) return res.json(done.status, done.body);
+    const b = galleries.openGallery(req.params.token);
+    if (!b.locked) return res.json(200, { paid: true });
+    const pkg = db.get('SELECT * FROM packages WHERE id = ?', [b.package_id]);
+    let checkout;
+    try { checkout = await payments.startBalanceCheckout(b, pkg, key); } catch (e) {
+      console.error('balance checkout:', e.message);
+      throw new HttpError(503, e.message.startsWith('Online payment') ? e.message : 'Payment couldn\u2019t start. Try again in a minute.');
+    }
+    const body = { checkoutUrl: checkout.url };
+    bookings.remember('balance:' + key, 200, body);
+    res.json(200, body);
   });
   r.get('/g/:token/all.zip', async (req, res) => {
     const b = galleries.openGallery(req.params.token);
@@ -144,7 +177,7 @@ function build() {
     const b = galleries.openGallery(req.params.token);
     const p = db.get('SELECT * FROM photos WHERE id = ? AND booking_id = ? AND deleted_at IS NULL', [Number(req.params.photo), b.id]);
     if (!p) throw new HttpError(404, 'Not found.');
-    galleries.sendPhoto(res, p, req.params.size);
+    return galleries.sendPhoto(res, p, req.params.size, b.locked);
   });
 
   /* ---------- admin ---------- */
@@ -158,6 +191,7 @@ function build() {
   r.post('/api/admin/bookings/:id/status', admin((req, res) => res.json(200, { booking: bookings.setStatus(Number(req.params.id), String(req.body.status || '')) })));
   r.post('/api/admin/bookings/:id/deliver', admin((req, res) => res.json(200, bookings.deliver(Number(req.params.id), req.body.galleryUrl))));
   r.post('/api/admin/bookings/:id/cancel', admin((req, res) => res.json(200, bookings.cancel(Number(req.params.id)))));
+  r.post('/api/admin/bookings/:id/balance-paid', admin((req, res) => res.json(200, { booking: bookings.markBalancePaid(bookings.byId(Number(req.params.id)), 'marked') })));
   r.post('/api/admin/bookings/:id/undo', admin((req, res) => {
     res.json(200, { booking: bookings.undo(Number(req.params.id), String(req.body.action || ''), String(req.body.previous || '')) });
   }));
@@ -170,7 +204,7 @@ function build() {
   r.get('/api/admin/photos/:id/:size', admin((req, res) => {
     const p = db.get('SELECT * FROM photos WHERE id = ?', [Number(req.params.id)]);
     if (!p) throw new HttpError(404, 'Not found.');
-    galleries.sendPhoto(res, p, req.params.size);
+    return galleries.sendPhoto(res, p, req.params.size);
   }));
 
   // The site's look.

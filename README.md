@@ -25,7 +25,11 @@ npm test
 - **Bookings**: Booked → Prepped → Shot → Editing → Delivered. Moves happen at once with an Undo toast. Deliver and
   Cancel email the client, so that email waits 10 seconds and Undo takes it back.
 - **Photos** (per booking): upload the finished photos (drag in a whole folder's worth), remove with Undo, then
-  "Send" emails the client their private gallery at `/gallery/<their link>`: view large, download one, or download all.
+  "Send" emails the client their private gallery at `/gallery/<their link>`.
+- **Watermarked proofs until the balance is paid**: the gallery shows the photos with the brand mark across them and
+  no downloads. The client pays the balance right there (Stripe), or the photographer taps **Mark paid** (cash, in
+  person; Undo works until the email leaves). Either way the clean, full-quality photos unlock, with Download and
+  Download all, and the client gets an email. Packages with no balance are never locked.
 - **Clients**: everyone who has booked, grouped by email: sessions, packages, total, stage (upcoming, editing,
   delivered), repeat clients, and a private note per client.
 - **Site**: up to 6 background photos behind every page, fading slowly from one to the next.

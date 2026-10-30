@@ -104,6 +104,7 @@
       <h4>${esc(b.client_name)}</h4>
       <div class="meta">${esc(b.package_name)} · ${esc(b.when)}</div>
       <div class="meta num">Deposit ${money(b.deposit_cents)} · balance ${money(b.price_cents - b.deposit_cents)}</div>
+      ${balanceLine(b)}
       <details><summary>Details${b.prep ? ' and shoot plan' : ''}</summary><dl>
         <dt>Email</dt><dd><a href="mailto:${esc(b.client_email)}">${esc(b.client_email)}</a></dd>
         ${b.client_phone ? `<dt>Phone</dt><dd><a href="tel:${esc(b.client_phone)}">${esc(b.client_phone)}</a></dd>` : ''}
@@ -111,6 +112,13 @@
       </dl></details>
       <div class="actions">${actions}</div>
     </article>`;
+  }
+  // The balance unlocks the client's clean photos. Shown once the session is paid for (not for holds or refunds).
+  function balanceLine(b) {
+    const due = b.price_cents - b.deposit_cents;
+    if (due <= 0 || !['booked', 'prepped', 'shot', 'editing', 'delivered'].includes(b.status)) return '';
+    if (b.balance_paid_at) return `<div class="balance"><span class="badge delivered">Balance paid${b.balance_paid_by === 'online' ? ' online' : ''}</span></div>`;
+    return `<div class="balance"><span class="badge">Balance due</span>${btn('balance', b, 'Mark paid')}</div>`;
   }
   const btn = (act, b, label, to) => `<button type="button" class="btn btn-small" data-act="${act}" data-id="${b.id}"${to ? ` data-to="${to}"` : ''}>${label}</button>`;
 
@@ -127,6 +135,11 @@
         await api(`/api/admin/bookings/${id}/status`, { method: 'POST', body: { status: t.dataset.to } });
         await loadBoard();
         toast(`${b.client_name}: moved to ${t.dataset.to}.`, { actionLabel: 'Undo', onAction: () => undoStatus(id, from) });
+      } else if (t.dataset.act === 'balance') {
+        await api(`/api/admin/bookings/${id}/balance-paid`, { method: 'POST', body: {} });
+        await loadBoard();
+        toast(b.status === 'delivered' ? `${b.client_name}’s photos unlock and they’re emailed in 10 seconds.` : `${b.client_name}’s balance marked paid.`,
+          { ms: 9000, actionLabel: 'Undo', onAction: () => undo(id, 'balance', b.status) });
       } else if (t.dataset.act === 'cancel') {
         const out = await api(`/api/admin/bookings/${id}/cancel`, { method: 'POST', body: {} });
         await loadBoard();
@@ -142,7 +155,7 @@
     try {
       await api(`/api/admin/bookings/${id}/undo`, { method: 'POST', body: { action, previous } });
       await loadBoard(); if (current && current.id === id) refreshCurrent();
-      toast('Undone. No email was sent.');
+      toast(action === 'balance' ? 'Undone. The balance is due again.' : 'Undone. No email was sent.');
     } catch (e) { handle(e); }
   }
 
@@ -155,7 +168,8 @@
   function openPhotos(b) {
     current = b; photos = [];
     $('photos-title').textContent = `Photos for ${b.client_name}`;
-    $('photos-sub').textContent = `${b.package_name} · ${b.when}`;
+    const due = b.price_cents - b.deposit_cents;
+    $('photos-sub').textContent = `${b.package_name} · ${b.when}` + (due > 0 && !b.balance_paid_at ? ` · The client sees watermarked previews until the ${money(due)} balance is paid.` : '');
     $('photos-status').textContent = '';
     $('photo-grid').innerHTML = '';
     renderFoot();

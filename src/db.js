@@ -137,7 +137,7 @@ const DEFAULT_SETTINGS = {
   },
   // Photos behind every page, shown one after another with a slow fade. Each: { original, web, thumb, width, height }.
   siteBackground: { photos: [] },
-  terms: 'The deposit holds your date and comes off your total. Reschedule free up to 72 hours before your session. Cancellations within 72 hours keep the deposit. The balance is due at the shoot. You may use your photos personally; I may share a few in my portfolio unless you ask me not to.',
+  terms: 'The deposit holds your date and comes off your total. Reschedule free up to 72 hours before your session. Cancellations within 72 hours keep the deposit. The balance is due before your photos can be downloaded: pay it at the shoot or online in your gallery. You may use your photos personally; I may share a few in my portfolio unless you ask me not to.',
 };
 
 let db = null;
@@ -151,6 +151,10 @@ function init(file) {
   // Columns added after the first release (an existing database gets them here, once).
   const has = (table, col) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col);
   if (!has('packages', 'image_json')) db.exec("ALTER TABLE packages ADD COLUMN image_json TEXT NOT NULL DEFAULT ''");
+  // Watermarked proof copies of each client photo (watermark.js).
+  if (!has('photos', 'wm')) db.exec("ALTER TABLE photos ADD COLUMN wm TEXT NOT NULL DEFAULT ''; ALTER TABLE photos ADD COLUMN wm_thumb TEXT NOT NULL DEFAULT ''");
+  // The balance: once paid (online or marked by the photographer), the client's clean photos unlock.
+  if (!has('bookings', 'balance_paid_at')) db.exec('ALTER TABLE bookings ADD COLUMN balance_paid_at TEXT; ALTER TABLE bookings ADD COLUMN balance_session_id TEXT; ALTER TABLE bookings ADD COLUMN balance_paid_by TEXT');
   if (!get('SELECT 1 FROM packages LIMIT 1')) {
     for (const p of SEED_PACKAGES) {
       run('INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort) VALUES (?,?,?,?,?,?,?,?,?)',

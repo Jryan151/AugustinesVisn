@@ -9,6 +9,9 @@
    Removing a photo is instant with Undo: the row is marked deleted, and the files are only really deleted a day later
    by the job loop (purgeDeleted).
 
+   Until the client's balance is paid, the gallery shows watermarked proofs (watermark.js) and downloads are locked.
+   Once it's paid (online, or marked in Admin) the clean photos and downloads open. Admin always sees them clean.
+
    "Download all" streams one .zip built on the fly. Photos are already compressed, so the zip just stores them
    (no squeezing): fast, and it needs nothing installed.
    ===================================================================== */
@@ -18,6 +21,7 @@ const zlib = require('zlib');
 const db = require('./db');
 const config = require('./config');
 const media = require('./media');
+const watermark = require('./watermark');
 const { HttpError } = require('./http');
 
 const dirFor = (bookingId) => path.join(config.galleryDir, String(Number(bookingId)));
@@ -37,6 +41,8 @@ async function add(bookingId, req) {
   const f = await media.storeUpload(req, dirFor(bookingId));
   const r = db.run('INSERT INTO photos (booking_id, original, web, thumb, file_name, bytes, width, height, created_at) VALUES (?,?,?,?,?,?,?,?,?)',
     [bookingId, f.original, f.web, f.thumb, cleanName(name), f.bytes, f.width, f.height, db.nowIso()]);
+  // The watermarked proofs are made in the background, so the next upload can start straight away.
+  proofs(db.get('SELECT * FROM photos WHERE id = ?', [r.lastInsertRowid])).catch(() => {});
   return db.get('SELECT id, file_name, bytes, width, height, created_at FROM photos WHERE id = ?', [r.lastInsertRowid]);
 }
 
@@ -49,7 +55,11 @@ function restore(photoId) {
 /** Really deletes photos removed over a day ago. */
 function purgeDeleted(now = new Date()) {
   const old = db.all('SELECT * FROM photos WHERE deleted_at IS NOT NULL AND deleted_at < ?', [new Date(now.getTime() - 86400000).toISOString()]);
-  for (const p of old) { media.removeFiles(dirFor(p.booking_id), p); db.run('DELETE FROM photos WHERE id = ?', [p.id]); }
+  for (const p of old) {
+    media.removeFiles(dirFor(p.booking_id), p);
+    for (const f of [p.wm, p.wm_thumb]) if (f) fs.rmSync(path.join(dirFor(p.booking_id), f), { force: true });
+    db.run('DELETE FROM photos WHERE id = ?', [p.id]);
+  }
   return old.length;
 }
 
@@ -57,12 +67,27 @@ function purgeDeleted(now = new Date()) {
 function openGallery(token) {
   const b = /^[A-Za-z0-9_-]{16,64}$/.test(String(token || '')) ? db.get('SELECT * FROM bookings WHERE token = ?', [token]) : null;
   if (!b || b.status !== 'delivered' || !count(b.id)) throw new HttpError(404, 'This gallery isn’t ready yet.');
+  b.locked = !require('./bookings').isUnlocked(b); // balance not paid: proofs only, no downloads
   return b;
 }
 
-/** Sends one photo: 'thumb' and 'web' to look at, 'original' as a download with its own file name. */
-function sendPhoto(res, photo, size) {
-  const file = { thumb: photo.thumb, web: photo.web, original: photo.original }[size];
+/** The watermarked copies of a photo, made now if missing. Null if they can't be made. */
+function proofs(photo) {
+  return watermark.ensure(dirFor(photo.booking_id), photo, (r) => db.run('UPDATE photos SET wm = ?, wm_thumb = ? WHERE id = ?', [r.wm, r.wmThumb, photo.id]));
+}
+
+/**
+ * Sends one photo: 'thumb' and 'web' to look at, 'original' as a download with its own file name.
+ * `locked`: the balance isn't paid, so only the watermarked copies go out, and never the original.
+ */
+async function sendPhoto(res, photo, size, locked = false) {
+  let file;
+  if (locked) {
+    if (size === 'original') throw new HttpError(402, 'Pay the balance to download your photos.');
+    const p = await proofs(photo);
+    if (!p) throw new HttpError(503, 'This preview isn\u2019t ready yet. Try again in a minute.');
+    file = { thumb: p.wmThumb, web: p.wm }[size];
+  } else file = { thumb: photo.thumb, web: photo.web, original: photo.original }[size];
   if (!file) throw new HttpError(404, 'Not found.');
   const full = path.join(dirFor(photo.booking_id), file);
   let st; try { st = fs.statSync(full); } catch (e) { throw new HttpError(404, 'That photo file is missing.'); }
@@ -81,6 +106,7 @@ function dosTime(d) {
   return { time: (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2), date: ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate() };
 }
 async function sendZip(res, booking, zipName) {
+  if (booking.locked) throw new HttpError(402, 'Pay the balance to download your photos.');
   const photos = db.all('SELECT * FROM photos WHERE booking_id = ? AND deleted_at IS NULL ORDER BY id', [booking.id]);
   const total = photos.reduce((s, p) => s + p.bytes, 0);
   if (total > 3.5 * 1024 ** 3) throw new HttpError(413, 'This gallery is too big for one download. Download the photos one by one.');
@@ -122,4 +148,4 @@ async function sendZip(res, booking, zipName) {
   res.end(end);
 }
 
-module.exports = { list, count, add, remove, restore, purgeDeleted, openGallery, sendPhoto, sendZip, dirFor };
+module.exports = { proofs, list, count, add, remove, restore, purgeDeleted, openGallery, sendPhoto, sendZip, dirFor };
