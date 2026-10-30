@@ -36,7 +36,7 @@ const config = {
   // Behind nginx/Cloudflare, the visitor's real address comes in a header. Only trusted when this is on.
   trustProxy: env('TRUST_PROXY', '0') === '1',
   baseUrl: env('BASE_URL', 'http://localhost:3000').replace(/\/+$/, ''),
-  businessName: env('BUSINESS_NAME', 'Augustine’s Vision'),
+  businessName: env('BUSINESS_NAME', 'Augustine’s Visn'),
   adminEmail: env('ADMIN_EMAIL', ''),
   adminPassword: env('ADMIN_PASSWORD', isProd ? '' : 'admin'),
   sessionSecret: env('SESSION_SECRET', crypto.randomBytes(32).toString('hex')),

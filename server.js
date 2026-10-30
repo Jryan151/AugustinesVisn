@@ -38,11 +38,15 @@ const BUILD = (() => {
   return h.digest('hex').slice(0, 10);
 })();
 
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 function page(file, res) {
   const html = fs.readFileSync(path.join(config.publicDir, file), 'utf8')
     .replace('<!--SITE_BG strong-->', () => sitemedia.backgroundMarkup(true))
     .replace('<!--SITE_BG-->', () => sitemedia.backgroundMarkup(false))
-    .replace(/(src|href)="\/([a-z0-9-]+\.(?:js|css))"/g, `$1="/$2?v=${BUILD}"`);
+    .replace(/(src|href)="\/([a-z0-9-]+\.(?:js|css))"/g, `$1="/$2?v=${BUILD}"`)
+    .replace('<!--SITE_CSS-->', () => `<link rel="stylesheet" href="/site.css?v=${sitemedia.cssStamp()}">`)
+    .replace(/\{\{BRAND\}\}/g, () => esc(config.businessName));
   res.setHeader('Cache-Control', 'no-cache');
   res.send(200, html, 'text/html; charset=utf-8');
 }

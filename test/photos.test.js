@@ -136,7 +136,7 @@ test('site background: uploads show on every public page; first can be changed; 
   assert.equal(b.data.background.length, 2);
   const [p1, p2] = b.data.background;
   const home = (await call('GET', '/')).data.toString();
-  assert.match(home, new RegExp(`class="bg-photo on" src="${p1.web}"`), 'the first loads with the page');
+  assert.match(home, new RegExp(`class="bg-photo on" data-key="${p1.key}" src="${p1.web}"`), 'the first loads with the page');
   assert.match(home, new RegExp(`data-src="${p2.web}"`), 'the rest wait');
   assert.match((await call('GET', '/book')).data.toString(), /class="bg strong"/, 'form pages get the heavier veil');
   const img = await call('GET', p2.web);
@@ -177,4 +177,38 @@ test('clients: grouped by email, counted from bookings, with private notes', asy
   await admin('PUT', '/api/admin/clients/notes', { email: 'repeat@example.com', notes: 'Loves moody edits' });
   assert.equal((await admin('GET', '/api/admin/clients')).data.clients.find((c) => c.email === 'repeat@example.com').notes, 'Loves moody edits');
   assert.equal((await call('GET', '/api/admin/clients')).status, 401);
+});
+
+test('photos can be nudged: focus and zoom are checked, saved, and placed by /site.css before any script runs', async () => {
+  const pkg = db.get("SELECT id FROM packages WHERE slug = 'couples'");
+  assert.equal((await admin('PUT', `/api/admin/packages/${pkg.id}/image/frame`, { fx: 20, fy: 30, zoom: 1.2 })).status, 404, 'no photo yet');
+  const img = (await admin('PUT', `/api/admin/packages/${pkg.id}/image`, JPG)).data.image;
+  assert.deepEqual([img.fx, img.fy, img.zoom], [50, 50, 1], 'a new photo starts centred');
+  assert.equal((await admin('PUT', `/api/admin/packages/${pkg.id}/image/frame`, { fx: 120, fy: 30 })).status, 400);
+  assert.equal((await admin('PUT', `/api/admin/packages/${pkg.id}/image/frame`, { fx: 20, fy: 30, zoom: 9 })).status, 400);
+  assert.equal((await call('PUT', `/api/admin/packages/${pkg.id}/image/frame`, { fx: 20, fy: 30, zoom: 1.2 })).status, 401);
+  const saved = await admin('PUT', `/api/admin/packages/${pkg.id}/image/frame`, { fx: 20, fy: 30, zoom: 1.2 });
+  assert.deepEqual([saved.data.image.fx, saved.data.image.fy, saved.data.image.zoom], [20, 30, 1.2]);
+
+  const bg = (await admin('PUT', '/api/admin/site/background', JPG)).data.background.pop();
+  await admin('PUT', `/api/admin/site/background/${bg.key}/frame`, { fx: 70, fy: 10, zoom: 1 });
+
+  const css = (await call('GET', '/site.css')).data.toString();
+  assert.match(css, new RegExp(`img\\[data-key="${img.key}"\\]\\{object-position:20% 30%;--fx:20%;--fy:30%;--zoom:1.2\\}`));
+  assert.match(css, new RegExp(`img\\[data-key="${bg.key}"\\]\\{object-position:70% 10%`));
+  const home = (await call('GET', '/')).data.toString();
+  const stamp = /href="\/site\.css\?v=([0-9a-f]{10})"/.exec(home);
+  assert.ok(stamp, 'pages link the framing stylesheet');
+  assert.match(home, new RegExp(`data-key="${bg.key}"`), 'background photos carry their key');
+  await admin('PUT', `/api/admin/site/background/${bg.key}/frame`, { fx: 71, fy: 10, zoom: 1 });
+  const again = /href="\/site\.css\?v=([0-9a-f]{10})"/.exec((await call('GET', '/')).data.toString());
+  assert.notEqual(again[1], stamp[1], 'a nudge changes the stamp, so it shows at once');
+});
+
+test('the name comes from one setting, on every page', async () => {
+  for (const p of ['/', '/book', '/admin']) {
+    const html = (await call('GET', p)).data.toString();
+    assert.ok(!html.includes('{{BRAND}}'), p);
+    assert.match(html, /Augustine’s Visn/, p);
+  }
 });

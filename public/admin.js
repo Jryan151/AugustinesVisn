@@ -326,15 +326,26 @@
   async function loadSite() {
     try { const s = await api('/api/admin/site'); bgPhotos = s.background; $('bg-max').textContent = s.max; renderSite(); } catch (e) { handle(e); }
   }
+  // Admin's own thumbnails show each photo framed as saved (the site gets the same from /site.css).
+  function applyFrames(root, list) {
+    for (const p of list) root.querySelectorAll(`img.framed[data-key="${p.key}"]`).forEach((img) => setFrame(img, p));
+  }
   function renderSite() {
+    setTimeout(() => applyFrames($('bg-photos'), bgPhotos));
     $('bg-photos').innerHTML = bgPhotos.map((p, i) => `<figure class="thumb wide" data-key="${esc(p.key)}">
-        <img src="${esc(p.thumb)}" width="${p.width}" height="${p.height}" alt="Background photo ${i + 1}" loading="lazy">
+        <div class="crop"><img src="${esc(p.thumb)}" data-key="${esc(p.key)}" class="framed" width="${p.width}" height="${p.height}" alt="Background photo ${i + 1}" loading="lazy"></div>
         <figcaption>${i === 0 ? '<span class="badge upcoming">Shows first</span>' : `<button type="button" class="btn btn-small" data-first="${esc(p.key)}">Show first</button>`}
+          <button type="button" class="btn btn-small" data-bg-frame="${esc(p.key)}">Adjust</button>
           <button type="button" class="btn btn-small btn-text" data-bg-remove="${esc(p.key)}">Remove</button></figcaption>
       </figure>`).join('') || '<p class="empty">No background photos yet: the site uses a plain warm gradient.</p>';
   }
   $('bg-photos').addEventListener('click', async (e) => {
     const first = e.target.closest('[data-first]'); const rm = e.target.closest('[data-bg-remove]');
+    const adj = e.target.closest('[data-bg-frame]');
+    if (adj) {
+      const p = bgPhotos.find((x) => x.key === adj.dataset.bgFrame);
+      return openFramer(p, BG_SHAPES, async (frame) => { bgPhotos = (await api(`/api/admin/site/background/${p.key}/frame`, { method: 'PUT', body: frame })).background; renderSite(); });
+    }
     try {
       if (first) { bgPhotos = (await api(`/api/admin/site/background/${first.dataset.first}/first`, { method: 'POST', body: {} })).background; renderSite(); toast('That photo now shows first.'); }
       if (rm) {
@@ -388,16 +399,18 @@
   const dollars = (c) => (c / 100).toFixed(c % 100 ? 2 : 0);
   function renderPackages() {
     $('package-forms').innerHTML = packages.map(packageForm).join('');
+    applyFrames($('package-forms'), packages.filter((p) => p.image).map((p) => p.image));
   }
   function packageForm(p) {
     const id = p.id || 'new';
     const f = (name, label, value, type = 'text', extra = '') => `<div class="field${extra}"><label for="${name}-${id}">${label}</label><input id="${name}-${id}" name="${name}" type="${type}" value="${esc(value)}"${type === 'number' ? ' inputmode="decimal" step="any" min="0"' : ''}></div>`;
     const image = p.id ? `<div class="pkg-photo wide">
-        ${p.image ? `<img src="${esc(p.image.thumb)}" width="${p.image.width}" height="${p.image.height}" alt="${esc(p.name)} card photo" loading="lazy">` : '<div class="pkg-photo-empty muted">No photo: the card is plain glass.</div>'}
+        ${p.image ? `<div class="crop pkg-crop"><img src="${esc(p.image.thumb)}" data-key="${esc(p.image.key)}" class="framed" width="${p.image.width}" height="${p.image.height}" alt="${esc(p.name)} card photo" loading="lazy"></div>` : '<div class="pkg-photo-empty muted">No photo: the card is plain glass.</div>'}
         <div class="upload-row">
           <label class="btn btn-small" for="img-${id}">${p.image ? 'Replace photo' : 'Add card photo'}</label>
           <input class="sr-only" id="img-${id}" type="file" accept="image/jpeg,image/png,image/webp" data-pkg-image="${p.id}">
-          ${p.image ? `<button type="button" class="btn btn-small btn-text" data-pkg-image-remove="${p.id}">Remove photo</button>` : ''}
+          ${p.image ? `<button type="button" class="btn btn-small" data-pkg-frame="${p.id}">Adjust</button>
+            <button type="button" class="btn btn-small btn-text" data-pkg-image-remove="${p.id}">Remove photo</button>` : ''}
           <span class="muted" data-pkg-status="${p.id}" role="status"></span>
         </div>
       </div>` : '<p class="muted wide">Save the package first, then add its card photo.</p>';
@@ -445,6 +458,11 @@
     catch (err) { if (err.status === 401) return handle(err); status.textContent = err.message; }
   });
   $('package-forms').addEventListener('click', async (e) => {
+    const adj = e.target.closest('[data-pkg-frame]');
+    if (adj) {
+      const p = packages.find((x) => String(x.id) === adj.dataset.pkgFrame);
+      return openFramer(p.image, CARD_SHAPES, async (frame) => { await api(`/api/admin/packages/${p.id}/image/frame`, { method: 'PUT', body: frame }); loadSettings(); });
+    }
     const rm = e.target.closest('[data-pkg-image-remove]'); if (!rm) return;
     if (!confirm('Remove this package’s card photo?')) return;
     try { await api(`/api/admin/packages/${rm.dataset.pkgImageRemove}/image`, { method: 'DELETE' }); toast('Removed.'); loadSettings(); } catch (err) { handle(err); }
@@ -454,6 +472,72 @@
     $('package-forms').insertAdjacentHTML('beforeend', packageForm({}));
     document.querySelector('.pkg-form[data-id=""] input').focus();
   });
+
+  /* ======================================================================
+     Adjust a photo: drag to move what stays in view, slide to zoom
+     ====================================================================== */
+  // The shapes each photo is really cropped to on the site.
+  const CARD_SHAPES = [{ label: 'Package card', w: 300, h: 330 }];
+  const BG_SHAPES = [{ label: 'Phone', w: 150, h: 325 }, { label: 'Computer', w: 400, h: 225 }];
+  const fr = $('framer');
+  let framing = null; // { photo, frame: { fx, fy, zoom }, save }
+
+  function setFrame(img, f) {
+    img.style.objectPosition = `${f.fx}% ${f.fy}%`;
+    img.style.setProperty('--fx', f.fx + '%'); img.style.setProperty('--fy', f.fy + '%'); img.style.setProperty('--zoom', f.zoom);
+  }
+  function paintFrames() {
+    fr.querySelectorAll('.framer-img').forEach((img) => setFrame(img, framing.frame));
+    $('framer-zoom').value = Math.round(framing.frame.zoom * 100);
+    $('framer-zoom-value').textContent = Math.round(framing.frame.zoom * 100) + '%';
+  }
+  function openFramer(photo, shapes, save) {
+    framing = { photo, frame: { fx: photo.fx ?? 50, fy: photo.fy ?? 50, zoom: photo.zoom ?? 1 }, save };
+    $('framer-frames').innerHTML = shapes.map((s) => `<figure class="framer-shape">
+        <div class="framer-frame" tabindex="0" role="group" aria-label="${s.label} preview: drag or use arrow keys to move the photo" data-w="${s.w}" data-h="${s.h}">
+          <img class="framer-img" src="${esc(photo.web)}" alt="" draggable="false">
+        </div><figcaption class="muted">${s.label}</figcaption></figure>`).join('');
+    fr.querySelectorAll('.framer-frame').forEach((el) => { el.style.width = el.dataset.w + 'px'; el.style.aspectRatio = `${el.dataset.w} / ${el.dataset.h}`; });
+    paintFrames();
+    fr.showModal();
+  }
+  const clamp = (n) => Math.min(100, Math.max(0, Math.round(n * 10) / 10));
+  let drag = null;
+  $('framer-frames').addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.framer-frame'); if (!el) return;
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    drag = { el, x: e.clientX, y: e.clientY, fx: framing.frame.fx, fy: framing.frame.fy };
+  });
+  $('framer-frames').addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const r = drag.el.getBoundingClientRect();
+    // Dragging the photo right shows more of its left side, so the focus moves the other way.
+    framing.frame.fx = clamp(drag.fx - ((e.clientX - drag.x) / r.width) * 100 / framing.frame.zoom);
+    framing.frame.fy = clamp(drag.fy - ((e.clientY - drag.y) / r.height) * 100 / framing.frame.zoom);
+    paintFrames();
+  });
+  const endDrag = () => { drag = null; };
+  $('framer-frames').addEventListener('pointerup', endDrag);
+  $('framer-frames').addEventListener('pointercancel', endDrag);
+  $('framer-frames').addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 10 : 2;
+    const moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+    if (!moves[e.key]) return;
+    e.preventDefault();
+    framing.frame.fx = clamp(framing.frame.fx + moves[e.key][0]);
+    framing.frame.fy = clamp(framing.frame.fy + moves[e.key][1]);
+    paintFrames();
+  });
+  $('framer-zoom').addEventListener('input', (e) => { framing.frame.zoom = Number(e.target.value) / 100; paintFrames(); });
+  $('framer-reset').addEventListener('click', () => { framing.frame = { fx: 50, fy: 50, zoom: 1 }; paintFrames(); });
+  $('framer-save').addEventListener('click', async () => {
+    const b = $('framer-save');
+    if (b.getAttribute('aria-busy') === 'true') return;
+    b.setAttribute('aria-busy', 'true');
+    try { await framing.save(framing.frame); fr.close(); toast('Saved. It’s live on the site.'); } catch (err) { handle(err); }
+    b.removeAttribute('aria-busy');
+  });
+  fr.querySelector('[data-close]').addEventListener('click', () => fr.close());
 
   boot();
 })();

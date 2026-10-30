@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Admin · Augustine’s Vision</title>
+  <title>Admin · {{BRAND}}</title>
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#08080b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Space+Grotesk:wght@400;600&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <!--SITE_CSS-->
 </head>
 <body>
   <nav class="nav glass" aria-label="Admin">
-    <a class="brand" href="/">Augustine’s Vision</a>
+    <a class="brand" href="/">{{BRAND}}</a>
     <div class="nav-links"><button class="btn btn-text" type="button" id="logout" hidden>Log out</button></div>
   </nav>
 
@@ -111,6 +112,23 @@
     <p class="muted" id="photos-status" role="status"></p>
     <div class="thumbs" id="photo-grid"></div>
     <div class="dialog-foot" id="photos-foot"></div>
+  </dialog>
+
+  <!-- Nudge a photo: drag to choose what stays in view, slide to zoom. Shown in the shapes it's really cropped to. -->
+  <dialog id="framer" aria-labelledby="framer-title">
+    <div class="dialog-head">
+      <div><h2 id="framer-title">Adjust the photo</h2><p class="muted">Drag the photo to move it. Arrow keys work too.</p></div>
+      <button class="btn btn-text" type="button" data-close aria-label="Close">Close</button>
+    </div>
+    <div class="framer-frames" id="framer-frames"></div>
+    <div class="field framer-zoom">
+      <label for="framer-zoom">Zoom <span class="hint num" id="framer-zoom-value">100%</span></label>
+      <input id="framer-zoom" type="range" min="100" max="250" step="1" value="100">
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn btn-text" id="framer-reset">Reset to centre</button>
+      <button type="button" class="btn btn-primary" id="framer-save">Save</button>
+    </div>
   </dialog>
 
   <script src="/common.js"></script>

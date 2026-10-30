@@ -74,7 +74,9 @@ a { color: inherit; }
 .bg-photo, .bg-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .bg-photo { opacity: 0; transition: opacity 1.6s ease; }
 .bg-photo.on { opacity: 1; animation: drift 14s ease-out both; }
-@keyframes drift { from { transform: scale(1.07); } to { transform: scale(1); } }
+/* Nudged photos (Admin): --fx/--fy is the part that stays in view, --zoom how far in. Set per photo by /site.css. */
+.bg-photo, .pkg-img, .framer-img { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--zoom, 1)); }
+@keyframes drift { from { transform: scale(calc(var(--zoom, 1) * 1.07)); } to { transform: scale(var(--zoom, 1)); } }
 .bg-veil { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(8, 8, 11, 0.4), rgba(8, 8, 11, 0.6) 55%, rgba(8, 8, 11, 0.9)); }
 .bg.strong .bg-veil { background: rgba(8, 8, 11, 0.8); }
 
@@ -124,9 +126,19 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .error-box { border: 1px solid rgba(240, 117, 110, 0.4); background: rgba(240, 117, 110, 0.1); color: #ffd1ce; padding: 12px 14px; border-radius: var(--radius-sm); margin-bottom: 16px; }
 
 /* ---------- home ---------- */
-.hero { min-height: 82svh; display: flex; align-items: flex-end; padding: 120px 0 56px; }
-.hero p { font-size: 1.15rem; color: #dcd9d3; max-width: 34ch; }
-.hero .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+/* The first screen: the name, centred, and one button. Nothing else. */
+.hero {
+  min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(28px, 5vh, 44px);
+  padding: max(24px, env(safe-area-inset-top)) var(--gutter) max(24px, env(safe-area-inset-bottom)); text-align: center;
+}
+.hero-title {
+  margin: 0; font-family: var(--font-display); font-weight: 600; line-height: 1.02; letter-spacing: 0.08em;
+  font-size: clamp(2.6rem, 11vw, 7rem); text-wrap: balance; text-shadow: 0 2px 30px rgba(0, 0, 0, 0.45);
+}
+.btn-large { min-height: 54px; padding: 0 36px; font-size: 17px; letter-spacing: 0.02em; }
+/* Home: the bar appears once the name has scrolled away. */
+.nav-home { position: fixed; left: 0; right: 0; transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s; }
+.nav-home:not(.shown) { opacity: 0; visibility: hidden; transform: translateY(-8px); }
 .section { padding: 56px 0; }
 .packages { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .pkg { position: relative; overflow: hidden; padding: 22px; display: flex; flex-direction: column; gap: 10px; text-decoration: none; }
@@ -235,7 +247,7 @@ footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; }
 @media (max-width: 560px) {
   .nav { padding-left: 14px; }
   .nav-links a:not(.btn) { display: none; }
-  .hero { padding-top: 96px; }
+
 }
 
 /* small helpers (no inline styles: the security policy blocks them) */
@@ -263,7 +275,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 .thumb-x:hover { background: var(--danger); }
 .thumbs:has(.wide) { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .thumb.wide { aspect-ratio: auto; }
-.thumb.wide img { aspect-ratio: 16 / 10; height: auto; }
+.thumb.wide .crop { aspect-ratio: 16 / 10; border-radius: 0; }
 .thumb figcaption { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 8px; }
 .upload-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .alt-link summary { cursor: pointer; color: var(--muted); min-height: 44px; display: flex; align-items: center; }
@@ -288,7 +300,9 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 .sessions li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; background: var(--panel-2); border-radius: 8px; }
 .notes-form textarea { margin-bottom: 8px; }
 .pkg-photo { display: grid; gap: 10px; }
-.pkg-photo img { width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-sm); }
+.crop { overflow: hidden; border-radius: var(--radius-sm); }
+.crop img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pkg-crop { width: min(300px, 100%); aspect-ratio: 300 / 330; }
 .pkg-photo-empty { padding: 28px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius-sm); }
 .pkg-form { margin-bottom: 16px; }
 
@@ -304,3 +318,13 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 }
 .grid .dl:hover { background: var(--accent); color: var(--accent-ink); }
 .grid a.view { display: block; }
+
+/* ---------- admin: adjust a photo ---------- */
+.framer-frames { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; justify-content: center; margin: 18px 0; }
+.framer-shape { margin: 0; display: grid; gap: 6px; justify-items: center; font-size: 13px; }
+.framer-frame { position: relative; max-width: 100%; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--line-strong); cursor: grab; touch-action: none; background: var(--panel-2); }
+.framer-frame:active { cursor: grabbing; }
+.framer-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.framer-zoom input { width: 100%; accent-color: var(--accent); min-height: 44px; }
+img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--zoom, 1)); }
+.section { scroll-margin-top: 88px; }

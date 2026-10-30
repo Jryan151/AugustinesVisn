@@ -6,6 +6,9 @@
      after another with a slow drift (common.js). With "reduce motion" or data saver, only the first, still.
    - Package image: one photo behind each package's card on the home page (and behind the booking page once that
      package is picked).
+   Each photo can be nudged in Admin: a focus point (which part stays in view when the frame crops it) and a zoom.
+   These go out as /site.css, a tiny stylesheet made from the saved values, so photos are placed right from the first
+   paint with no script and no jump. Its address carries a stamp of its contents, so a nudge shows at once.
    Files live in data/media/ and are served at /media/<name>. Every upload gets a new random name, so browsers can
    cache them for a long time and a replaced photo still shows at once.
    ===================================================================== */
@@ -20,11 +23,45 @@ const MAX_BG = 6;
 const url = (name) => '/media/' + name;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/** The public view of a stored photo: addresses and size. */
+/** The public view of a stored photo: addresses, size, and how it's framed. */
 function view(f) {
   if (!f || !f.original) return null;
-  return { web: url(f.web), thumb: url(f.thumb), width: f.width, height: f.height, key: f.name };
+  return { web: url(f.web), thumb: url(f.thumb), width: f.width, height: f.height, key: f.name, fx: f.fx ?? 50, fy: f.fy ?? 50, zoom: f.zoom ?? 1 };
 }
+
+/** Checks a framing: focus 0–100 (% across, % down) and zoom 1–2.5. */
+function cleanFrame(b) {
+  const num = (v, min, max, name) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < min || n > max) throw new HttpError(400, `${name} must be between ${min} and ${max}.`);
+    return Math.round(n * 100) / 100;
+  };
+  return { fx: num(b.fx, 0, 100, 'Across'), fy: num(b.fy, 0, 100, 'Down'), zoom: num(b.zoom ?? 1, 1, 2.5, 'Zoom') };
+}
+
+function frameBackground(key, body) {
+  const photos = backgroundPhotos();
+  const i = photos.findIndex((p) => p.name === key);
+  if (i < 0) throw new HttpError(404, 'No such photo.');
+  photos[i] = Object.assign({}, photos[i], cleanFrame(body));
+  db.saveSetting('siteBackground', { photos });
+  return backgroundPhotos().map(view);
+}
+function framePackageImage(id, body) {
+  const p = db.get('SELECT image_json FROM packages WHERE id = ?', [id]);
+  const img = p && packageImage(p);
+  if (!img) throw new HttpError(404, 'This package has no photo yet.');
+  const next = Object.assign({}, img, cleanFrame(body));
+  db.run('UPDATE packages SET image_json = ? WHERE id = ?', [JSON.stringify(next), id]);
+  return view(next);
+}
+
+/** The stylesheet that places every nudged photo. Only photos moved off the default get a rule. */
+function siteCss() {
+  const all = backgroundPhotos().concat(db.all("SELECT image_json FROM packages WHERE image_json != ''").map(packageImage).filter(Boolean));
+  return all.filter((f) => f.fx != null).map((f) => `img[data-key="${f.name}"]{object-position:${f.fx}% ${f.fy}%;--fx:${f.fx}%;--fy:${f.fy}%;--zoom:${f.zoom}}`).join('\n') + '\n';
+}
+const cssStamp = () => require('crypto').createHash('sha256').update(siteCss()).digest('hex').slice(0, 10);
 
 /* ---------- site background ---------- */
 function backgroundPhotos() { return (db.setting('siteBackground').photos || []); }
@@ -62,8 +99,8 @@ function firstBackground(key) {
 function backgroundMarkup(strong) {
   const photos = backgroundPhotos();
   const imgs = photos.map((p, i) => i === 0
-    ? `<img class="bg-photo on" src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async" fetchpriority="high">`
-    : `<img class="bg-photo" data-src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async">`).join('');
+    ? `<img class="bg-photo on" data-key="${esc(p.name)}" src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async" fetchpriority="high">`
+    : `<img class="bg-photo" data-key="${esc(p.name)}" data-src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async">`).join('');
   return `<div class="bg${strong ? ' strong' : ''}" aria-hidden="true">${imgs}<div class="bg-veil"></div></div>`;
 }
 
@@ -74,6 +111,7 @@ async function setPackageImage(id, req) {
   if (!db.get('SELECT 1 FROM packages WHERE id = ?', [id])) { req.resume(); throw new HttpError(404, 'No such package.'); }
   const f = await media.storeUpload(req, config.mediaDir);
   const old = packageImage(db.get('SELECT image_json FROM packages WHERE id = ?', [id]));
+  // A new photo starts centred: its framing is its own.
   db.run('UPDATE packages SET image_json = ? WHERE id = ?', [JSON.stringify(f), id]);
   if (old) media.removeFiles(config.mediaDir, old);
   return view(f);
@@ -100,4 +138,4 @@ function serveMedia(req, res) {
   return true;
 }
 
-module.exports = { addBackground, removeBackground, firstBackground, backgroundPhotos, backgroundMarkup, setPackageImage, removePackageImage, packageImage, view, serveMedia, MAX_BG };
+module.exports = { frameBackground, framePackageImage, siteCss, cssStamp, addBackground, removeBackground, firstBackground, backgroundPhotos, backgroundMarkup, setPackageImage, removePackageImage, packageImage, view, serveMedia, MAX_BG };

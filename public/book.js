@@ -43,7 +43,7 @@
   function setBackground(p) {
     const host = $('bg');
     if (!p || !p.image) { host.innerHTML = ''; return; }
-    host.innerHTML = `<div class="bg strong" aria-hidden="true"><img class="bg-photo on" src="${esc(p.image.web)}" alt="" decoding="async"><div class="bg-veil"></div></div>`;
+    host.innerHTML = `<div class="bg strong" aria-hidden="true"><img class="bg-photo on" data-key="${esc(p.image.key)}" src="${esc(p.image.web)}" alt="" decoding="async"><div class="bg-veil"></div></div>`;
   }
 
   /* ---------- step 1: package ---------- */

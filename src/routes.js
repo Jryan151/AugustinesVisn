@@ -23,6 +23,7 @@
      GET/PUT /api/admin/settings
      POST /api/admin/packages · PUT /api/admin/packages/:id
      PUT/DELETE /api/admin/packages/:id/image        the photo behind a package's card (PUT = raw image upload)
+     PUT /api/admin/packages/:id/image/frame · PUT /api/admin/site/background/:key/frame   nudge: { fx, fy, zoom }
      GET/PUT /api/admin/bookings/:id/photos          a client's finished photos (PUT = one raw image per request)
      DELETE /api/admin/photos/:id · POST …/restore · GET /api/admin/photos/:id/:size
      GET /api/admin/site · PUT /api/admin/site/background · DELETE …/:key · POST …/:key/first
@@ -62,6 +63,14 @@ function build() {
   /* ---------- public ---------- */
   // For the deploy check and uptime monitors: answers only when the database does.
   r.get('/api/health', (req, res) => { db.get('SELECT 1'); res.json(200, { ok: true }); });
+
+  // Where each nudged photo sits (see sitemedia.siteCss). Pages ask for it with a stamp, so it can be kept a year.
+  r.get('/site.css', (req, res) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/css; charset=utf-8');
+    res.setHeader('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'no-cache');
+    res.end(sitemedia.siteCss());
+  });
 
   r.get('/api/site', (req, res) => res.json(200, { businessName: config.businessName, terms: db.setting('terms') }));
 
@@ -169,6 +178,8 @@ function build() {
   r.put('/api/admin/site/background', admin(async (req, res) => res.json(200, { background: await sitemedia.addBackground(req) })), { stream: true });
   r.delete('/api/admin/site/background/:key', admin((req, res) => res.json(200, { background: sitemedia.removeBackground(req.params.key) })));
   r.post('/api/admin/site/background/:key/first', admin((req, res) => res.json(200, { background: sitemedia.firstBackground(req.params.key) })));
+  r.put('/api/admin/site/background/:key/frame', admin((req, res) => res.json(200, { background: sitemedia.frameBackground(req.params.key, req.body) })));
+  r.put('/api/admin/packages/:id/image/frame', admin((req, res) => res.json(200, { image: sitemedia.framePackageImage(Number(req.params.id), req.body) })));
   r.put('/api/admin/packages/:id/image', admin(async (req, res) => res.json(200, { image: await sitemedia.setPackageImage(Number(req.params.id), req) })), { stream: true });
   r.delete('/api/admin/packages/:id/image', admin((req, res) => { sitemedia.removePackageImage(Number(req.params.id)); res.json(200, { ok: true }); }));
 

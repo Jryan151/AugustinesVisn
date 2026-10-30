@@ -1,4 +1,4 @@
-/* home.js — the package cards (the last copy at once, then the fresh one) and the background. */
+/* home.js — the home page: the bar that appears after the first screen, and the package cards (the last copy at once, then the fresh one). */
 (function () {
   'use strict';
   const { esc, money } = AV;
@@ -8,7 +8,7 @@
   // The package's own photo sits behind its card, at its real shape (so nothing jumps while it loads).
   function photo(img) {
     if (!img) return '';
-    return `<img class="pkg-img" src="${esc(img.thumb)}" srcset="${esc(img.thumb)} 600w, ${esc(img.web)} 2000w" sizes="(max-width: 600px) 100vw, 360px"
+    return `<img class="pkg-img" data-key="${esc(img.key)}" src="${esc(img.thumb)}" srcset="${esc(img.thumb)} 600w, ${esc(img.web)} 2000w" sizes="(max-width: 600px) 100vw, 360px"
       width="${img.width}" height="${img.height}" alt="" loading="lazy" decoding="async">`;
   }
   function card(p) {
@@ -20,6 +20,13 @@
       <span class="go">Book ${esc(p.name)} →</span>
     </a>`;
   }
+
+  // The bar (with its Book button) shows once the name has scrolled out of view, so the first screen stays clean.
+  const nav = document.getElementById('nav');
+  const hero = document.getElementById('hero');
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => nav.classList.toggle('shown', e.intersectionRatio < 0.35), { threshold: [0, 0.35, 1] }).observe(hero);
+  } else nav.classList.add('shown');
 
   AV.cached('packages', '/api/packages', (data, fromCache, err) => {
     list.removeAttribute('aria-busy');

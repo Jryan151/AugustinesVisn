@@ -3,21 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Augustine’s Vision · Photography</title>
+  <title>{{BRAND}} · Photography</title>
   <meta name="description" content="Portrait, couples and automotive photography at golden hour. See the packages and book a session online.">
   <meta name="theme-color" content="#08080b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Space+Grotesk:wght@400;600&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <!--SITE_CSS-->
   <!-- Most visitors go on to book: get that page ready while they read. -->
   <script type="speculationrules">{ "prerender": [{ "where": { "href_matches": "/book*" }, "eagerness": "moderate" }] }</script>
 </head>
 <body>
   <!--SITE_BG-->
 
-  <nav class="nav glass" aria-label="Main">
-    <a class="brand" href="/">Augustine’s Vision</a>
+  <!-- On the home page the bar stays out of the way until the visitor scrolls past the name (home.js). -->
+  <nav class="nav glass nav-home" id="nav" aria-label="Main">
+    <a class="brand" href="/">{{BRAND}}</a>
     <div class="nav-links">
       <a href="#packages">Packages</a>
       <a href="#how">How it works</a>
@@ -26,15 +28,9 @@
   </nav>
 
   <main>
-    <header class="hero">
-      <div class="wrap">
-        <h1>Photographs made in the best light of the day.</h1>
-        <p>Portraits, couples and cars, shot at golden hour around Phoenix. Pick a package, pick a sunset, and you’re booked.</p>
-        <div class="actions">
-          <a class="btn btn-primary" href="/book">Book a session</a>
-          <a class="btn glass" href="#packages">See packages</a>
-        </div>
-      </div>
+    <header class="hero" id="hero">
+      <h1 class="hero-title">{{BRAND}}</h1>
+      <a class="btn btn-primary btn-large" href="/book">Book now</a>
     </header>
 
     <section class="section" id="packages" aria-labelledby="packages-title">
@@ -63,7 +59,7 @@
     </section>
   </main>
 
-  <footer><div class="wrap">© <span id="year"></span> Augustine’s Vision</div></footer>
+  <footer><div class="wrap">© <span id="year"></span> {{BRAND}}</div></footer>
 
   <script src="/common.js"></script>
   <script src="/home.js"></script>

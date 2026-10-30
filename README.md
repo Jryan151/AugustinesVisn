@@ -1,4 +1,4 @@
-# Augustine's Vision — booking
+# Augustine's Visn — booking
 
 A booking site for photography sessions. A client picks a package and a golden-hour time, pays a deposit, and tells
 the photographer about the shoot. The photographer runs everything from one Admin page.
