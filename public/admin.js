@@ -432,7 +432,7 @@
       <h2>${esc(p.name || 'New package')}</h2>
       <div class="pkg-edit">
         ${image}
-        ${f('name', 'Name', p.name || '')}
+        ${f('name', 'Title <span class="hint">(shown on the package card)</span>', p.name || '', 'text', ' wide')}
         ${f('slug', 'Link name <span class="hint">(/book?p=…)</span>', p.slug || '')}
         ${f('summary', 'One-line summary', p.summary || '', 'text', ' wide')}
         ${f('price', 'Price ($)', p.price_cents != null ? dollars(p.price_cents) : '', 'number')}
@@ -461,6 +461,11 @@
       toast('Package saved.');
       loadSettings();
     } catch (err) { handle(err); }
+  });
+  // The form's heading follows the title as it's typed, so it's clear which field renames the package.
+  $('package-forms').addEventListener('input', (e) => {
+    if (e.target.name !== 'name') return;
+    e.target.form.querySelector('h2').textContent = e.target.value.trim() || 'New package';
   });
   $('package-forms').addEventListener('change', async (e) => {
     const input = e.target.closest('[data-pkg-image]'); if (!input || !input.files[0]) return;
