@@ -8,7 +8,7 @@
      AV.cached(key, url, fn)   show the last copy at once, then the fresh one (only for things that may be a bit old)
      AV.slow(ms, show)         run show() only if the work takes longer than ms (skeletons that never flash)
      AV.transition(fn)         change the page inside a short view transition, when motion is welcome
-     AV.startBackground()      fade in the background video once the page has settled
+     AV.startBackground()      the background photos fade from one to the next (starts by itself on each page)
    ===================================================================== */
 (function () {
   'use strict';
@@ -80,28 +80,38 @@
     document.startViewTransition(fn);
   }
 
-  /* ---------- background video ----------
-     The still shows at once. The clip loads only after the page has finished and gone quiet, picks the phone or
-     big-screen file, and fades in once it's actually playing. Never with "reduce motion", data saver or slow data. */
+  /* ---------- the background photos ----------
+     The first photo comes with the page. Once the page has loaded and gone quiet, the next one is fetched, and each
+     fades in over the last every HOLD ms while it slowly drifts (CSS). With "reduce motion", data saver or slow data,
+     the first photo stays, still. It pauses while the tab is hidden. */
+  const HOLD = 7000;
   function startBackground(root = document) {
-    const v = root.querySelector('.bg-video');
-    if (!v) return;
+    const photos = [...root.querySelectorAll('.bg-photo')];
+    if (photos.length < 2) return;
     const c = navigator.connection || {};
     if (reduceMotion() || c.saveData || /(^|-)2g$|^3g$/.test(c.effectiveType || '')) return;
-    const go = () => {
-      const big = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) >= 1600 && window.innerWidth >= 768;
-      v.muted = true; v.defaultMuted = true;
-      v.src = big ? v.dataset.lg : v.dataset.sm;
-      v.addEventListener('playing', () => v.classList.add('on'), { once: true });
-      const p = v.play(); if (p && p.catch) p.catch(() => {});
-    };
-    const idle = () => (window.requestIdleCallback || ((f) => setTimeout(f, 1)))(() => setTimeout(go, 1500), { timeout: 4000 });
-    if (document.readyState === 'complete') idle(); else addEventListener('load', idle, { once: true });
-    document.addEventListener('visibilitychange', () => {
-      if (!v.src) return;
-      if (document.hidden) v.pause(); else { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+    let i = 0; let timer = null;
+    const load = (img) => new Promise((ok) => {
+      if (!img.dataset.src) return ok();
+      img.addEventListener('load', ok, { once: true }); img.addEventListener('error', ok, { once: true });
+      img.src = img.dataset.src; delete img.dataset.src;
     });
+    const next = async () => {
+      const n = (i + 1) % photos.length;
+      await load(photos[n]);
+      if (!photos[n].complete || !photos[n].naturalWidth) { i = n; return schedule(); } // skip one that won't load
+      photos[n].classList.add('on'); photos[i].classList.remove('on');
+      i = n;
+      schedule();
+    };
+    const schedule = () => { clearTimeout(timer); if (!document.hidden) timer = setTimeout(next, HOLD); };
+    const idle = () => (window.requestIdleCallback || ((f) => setTimeout(f, 1)))(() => { load(photos[1]); schedule(); }, { timeout: 4000 });
+    if (document.readyState === 'complete') idle(); else addEventListener('load', idle, { once: true });
+    document.addEventListener('visibilitychange', () => (document.hidden ? clearTimeout(timer) : schedule()));
   }
+  // Every page with a background starts it by itself.
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => startBackground());
+  else startBackground();
 
   window.AV = { api, money, time, day, esc, toast, cached, slow, transition, startBackground, setTimezone, reduceMotion };
 })();

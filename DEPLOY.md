@@ -46,6 +46,23 @@ Then: `sudo runuser -u booking -- pm2 restart booking --update-env`
 
 Until a Stripe key is set, booking is closed on the live site with a polite message (it never pretends to take money).
 
+## Updating to a new version
+```
+sudo bash /srv/booking/deploy/update.sh
+```
+Pulls the newest version, runs every check, restarts, and confirms the site answers. If anything fails it goes back to
+the version that was running. Bookings, photos and `.env` are never touched. It also lets nginx accept photo uploads
+on installs from before photos existed.
+
+Recommended once: `sudo apt install -y ffmpeg` (likely already there for the generator). With it, uploaded photos get
+small web copies so pages load fast; without it, the full-size photo is shown everywhere.
+
+## Photos and disk space
+Client photos live in `/srv/booking/data/galleries/`, site photos in `/srv/booking/data/media/`. Full-size photos add
+up (a 40-photo session is around 1 GB), and this server's disk is shared with the generator. Check now and then with
+`df -h /` and `sudo du -sh /srv/booking/data/galleries`. Old galleries can be removed per booking folder once clients
+have downloaded them.
+
 ## Everyday commands
 ```
 sudo runuser -u booking -- pm2 status            # is it running

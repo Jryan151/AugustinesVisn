@@ -6,7 +6,7 @@
    - Reminders are queued: 3 days before and 1 day before the session.
    - The review request is queued 7 days after the gallery goes out.
    - The outbox sends what's due.
-   - Old idempotency answers (over a day) are cleared.
+   - Old idempotency answers (over a day) are cleared, and photos removed over a day ago are really deleted.
    - Once a day, a full copy of the database goes to data/backups/ (14 kept). Copy that folder off the server too.
    Each step is safe to run again: the outbox's unique index means a reminder is never queued twice.
    ===================================================================== */
@@ -16,6 +16,7 @@ const db = require('./db');
 const config = require('./config');
 const mail = require('./mail');
 const bookings = require('./bookings');
+const galleries = require('./galleries');
 
 const DAY = 86400000;
 
@@ -46,6 +47,7 @@ async function tick(now = new Date()) {
   queueDue(now);
   await mail.processOutbox(now);
   db.run('DELETE FROM idempotency WHERE created_at < ?', [new Date(now.getTime() - DAY).toISOString()]);
+  galleries.purgeDeleted(now);
   try { backup(now); } catch (e) { console.error('backup failed:', e.message); }
 }
 

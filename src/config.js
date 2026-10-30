@@ -20,7 +20,8 @@ function loadEnvFile(file) {
     if (process.env[m[1]] === undefined) process.env[m[1]] = v;
   }
 }
-loadEnvFile(path.join(__dirname, '..', '.env'));
+// Tests never read .env: they must not touch the live database, real Stripe keys or real email.
+if (process.env.NODE_ENV !== 'test') loadEnvFile(path.join(__dirname, '..', '.env'));
 
 const env = (k, d) => (process.env[k] !== undefined && process.env[k] !== '' ? process.env[k] : d);
 const isProd = env('NODE_ENV', 'development') === 'production';
@@ -48,6 +49,11 @@ const config = {
   mailFrom: env('MAIL_FROM', ''),
   dbFile: env('DB_FILE', path.join(__dirname, '..', 'data', 'booking.sqlite')),
   backupDir: env('BACKUP_DIR', path.join(__dirname, '..', 'data', 'backups')),
+  // Uploaded photos. media/ is public (backgrounds, package images); galleries/ is private (client photos).
+  mediaDir: env('MEDIA_DIR', path.join(__dirname, '..', 'data', 'media')),
+  galleryDir: env('GALLERY_DIR', path.join(__dirname, '..', 'data', 'galleries')),
+  // Used to make web-size copies of uploads, when installed. 'none' turns it off.
+  ffmpegPath: env('FFMPEG_PATH', 'ffmpeg'),
   publicDir: path.join(__dirname, '..', 'public'),
   // A client's time is held this long while they pay. Stripe's checkout can't expire sooner than 30 minutes.
   holdMinutes: 30,

@@ -12,6 +12,9 @@
      settings     the photographer's rules as JSON values (availability, terms)
      outbox       every email, queued first and sent by the job loop (one per booking per kind, never twice)
      idempotency  answers already given to a request key, so a retried "pay" never makes a second booking
+     photos       a client's finished photos, per booking (files in data/galleries/<booking id>/)
+     clients      the photographer's private notes on a client, by email (everything else about a client is
+                  worked out from their bookings, so it can never disagree with them)
    ===================================================================== */
 const { DatabaseSync } = require('node:sqlite');
 const fs = require('fs');
@@ -35,6 +38,7 @@ CREATE TABLE IF NOT EXISTS packages (
   deposit_cents INTEGER NOT NULL,
   bg_video TEXT NOT NULL DEFAULT '',
   bg_poster TEXT NOT NULL DEFAULT '',
+  image_json TEXT NOT NULL DEFAULT '',
   sort INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1
 );
@@ -86,6 +90,25 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 -- The same email can't be queued twice for one booking (a second reminder, a second confirmation).
 CREATE UNIQUE INDEX IF NOT EXISTS outbox_once ON outbox(booking_id, kind) WHERE booking_id IS NOT NULL AND status != 'cancelled';
+CREATE TABLE IF NOT EXISTS photos (
+  id INTEGER PRIMARY KEY,
+  booking_id INTEGER NOT NULL REFERENCES bookings(id),
+  original TEXT NOT NULL,
+  web TEXT NOT NULL,
+  thumb TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  bytes INTEGER NOT NULL,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS photos_booking ON photos(booking_id, id);
+CREATE TABLE IF NOT EXISTS clients (
+  email TEXT PRIMARY KEY,
+  notes TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS idempotency (
   key TEXT PRIMARY KEY,
   status INTEGER NOT NULL,
@@ -112,6 +135,8 @@ const DEFAULT_SETTINGS = {
     morningLeadMinutes: 15, // a morning session starts this long before sunrise
     eveningTailMinutes: 15, // an evening session ends this long after sunset
   },
+  // Photos behind every page, shown one after another with a slow fade. Each: { original, web, thumb, width, height }.
+  siteBackground: { photos: [] },
   terms: 'The deposit holds your date and comes off your total. Reschedule free up to 72 hours before your session. Cancellations within 72 hours keep the deposit. The balance is due at the shoot. You may use your photos personally; I may share a few in my portfolio unless you ask me not to.',
 };
 
@@ -123,6 +148,9 @@ function init(file) {
   db = new DatabaseSync(file);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 3000;');
   db.exec(SCHEMA);
+  // Columns added after the first release (an existing database gets them here, once).
+  const has = (table, col) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col);
+  if (!has('packages', 'image_json')) db.exec("ALTER TABLE packages ADD COLUMN image_json TEXT NOT NULL DEFAULT ''");
   if (!get('SELECT 1 FROM packages LIMIT 1')) {
     for (const p of SEED_PACKAGES) {
       run('INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort) VALUES (?,?,?,?,?,?,?,?,?)',

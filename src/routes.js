@@ -13,12 +13,20 @@
      POST /api/bookings/:token/prep     the prep questionnaire
      POST /api/stripe/webhook           Stripe says a deposit was paid
      GET  /api/dev/pay/:token           development only: pretend the deposit was paid
+     GET  /api/gallery/:token           a delivered client's photos (list)
+     GET  /g/:token/:photo/:size        one photo (thumb, web, original = download)
+     GET  /g/:token/all.zip             every photo in one download
    Admin (logged in):
      POST /api/admin/login · /logout · GET /me
      GET  /api/admin/bookings           the pipeline
      POST /api/admin/bookings/:id/status · /deliver · /cancel · /undo
      GET/PUT /api/admin/settings
      POST /api/admin/packages · PUT /api/admin/packages/:id
+     PUT/DELETE /api/admin/packages/:id/image        the photo behind a package's card (PUT = raw image upload)
+     GET/PUT /api/admin/bookings/:id/photos          a client's finished photos (PUT = one raw image per request)
+     DELETE /api/admin/photos/:id · POST …/restore · GET /api/admin/photos/:id/:size
+     GET /api/admin/site · PUT /api/admin/site/background · DELETE …/:key · POST …/:key/first
+     GET /api/admin/clients · PUT /api/admin/clients/notes
    ===================================================================== */
 const db = require('./db');
 const config = require('./config');
@@ -26,6 +34,9 @@ const auth = require('./auth');
 const bookings = require('./bookings');
 const availability = require('./availability');
 const payments = require('./payments');
+const galleries = require('./galleries');
+const sitemedia = require('./sitemedia');
+const clients = require('./clients');
 const { HttpError, createRouter } = require('./http');
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
@@ -37,7 +48,9 @@ const int = (v, min, max, name) => {
   return n;
 };
 
-const PUBLIC_PACKAGE = 'id, slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, bg_video, bg_poster';
+const PUBLIC_PACKAGE = 'id, slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, image_json';
+// A package as the public sees it: its card photo as addresses, not the stored file names.
+const publicPackage = (p) => { const out = Object.assign({}, p, { image: sitemedia.view(sitemedia.packageImage(p)) }); delete out.image_json; return out; };
 const activePackage = (slug) => db.get(`SELECT * FROM packages WHERE slug = ? AND active = 1`, [String(slug || '')]);
 
 // Two copies of the same request at once (a double tap): the second waits for the first and gets the same answer.
@@ -53,7 +66,7 @@ function build() {
   r.get('/api/site', (req, res) => res.json(200, { businessName: config.businessName, terms: db.setting('terms') }));
 
   r.get('/api/packages', (req, res) => {
-    res.json(200, { packages: db.all(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE active = 1 ORDER BY sort, id`) });
+    res.json(200, { packages: db.all(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE active = 1 ORDER BY sort, id`).map(publicPackage) });
   });
 
   r.get('/api/availability', (req, res) => {
@@ -107,6 +120,24 @@ function build() {
     res.redirect(`/booked?b=${encodeURIComponent(req.params.token)}`);
   });
 
+  /* ---------- a delivered client's gallery ---------- */
+  r.get('/api/gallery/:token', (req, res) => {
+    const b = galleries.openGallery(req.params.token);
+    const pkg = db.get('SELECT name FROM packages WHERE id = ?', [b.package_id]);
+    res.json(200, { businessName: config.businessName, name: b.client_name, package: pkg.name, when: require('./mail').when(b), photos: galleries.list(b.id) });
+  });
+  r.get('/g/:token/all.zip', async (req, res) => {
+    const b = galleries.openGallery(req.params.token);
+    const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    await galleries.sendZip(res, b, `${slug(b.client_name) || 'photos'}-${slug(config.businessName)}.zip`);
+  });
+  r.get('/g/:token/:photo/:size', (req, res) => {
+    const b = galleries.openGallery(req.params.token);
+    const p = db.get('SELECT * FROM photos WHERE id = ? AND booking_id = ? AND deleted_at IS NULL', [Number(req.params.photo), b.id]);
+    if (!p) throw new HttpError(404, 'Not found.');
+    galleries.sendPhoto(res, p, req.params.size);
+  });
+
   /* ---------- admin ---------- */
   r.post('/api/admin/login', (req, res) => auth.login(req, res));
   r.post('/api/admin/logout', (req, res) => auth.logout(req, res));
@@ -122,8 +153,31 @@ function build() {
     res.json(200, { booking: bookings.undo(Number(req.params.id), String(req.body.action || ''), String(req.body.previous || '')) });
   }));
 
+  // Client photos.
+  r.get('/api/admin/bookings/:id/photos', admin((req, res) => res.json(200, { photos: galleries.list(Number(req.params.id)) })));
+  r.put('/api/admin/bookings/:id/photos', admin(async (req, res) => res.json(200, { photo: await galleries.add(Number(req.params.id), req) })), { stream: true });
+  r.delete('/api/admin/photos/:id', admin((req, res) => { galleries.remove(Number(req.params.id)); res.json(200, { ok: true }); }));
+  r.post('/api/admin/photos/:id/restore', admin((req, res) => { galleries.restore(Number(req.params.id)); res.json(200, { ok: true }); }));
+  r.get('/api/admin/photos/:id/:size', admin((req, res) => {
+    const p = db.get('SELECT * FROM photos WHERE id = ?', [Number(req.params.id)]);
+    if (!p) throw new HttpError(404, 'Not found.');
+    galleries.sendPhoto(res, p, req.params.size);
+  }));
+
+  // The site's look.
+  r.get('/api/admin/site', admin((req, res) => res.json(200, { background: sitemedia.backgroundPhotos().map(sitemedia.view), max: sitemedia.MAX_BG })));
+  r.put('/api/admin/site/background', admin(async (req, res) => res.json(200, { background: await sitemedia.addBackground(req) })), { stream: true });
+  r.delete('/api/admin/site/background/:key', admin((req, res) => res.json(200, { background: sitemedia.removeBackground(req.params.key) })));
+  r.post('/api/admin/site/background/:key/first', admin((req, res) => res.json(200, { background: sitemedia.firstBackground(req.params.key) })));
+  r.put('/api/admin/packages/:id/image', admin(async (req, res) => res.json(200, { image: await sitemedia.setPackageImage(Number(req.params.id), req) })), { stream: true });
+  r.delete('/api/admin/packages/:id/image', admin((req, res) => { sitemedia.removePackageImage(Number(req.params.id)); res.json(200, { ok: true }); }));
+
+  // Clients.
+  r.get('/api/admin/clients', admin((req, res) => res.json(200, { clients: clients.list() })));
+  r.put('/api/admin/clients/notes', admin((req, res) => { clients.saveNotes(req.body.email, req.body.notes); res.json(200, { ok: true }); }));
+
   r.get('/api/admin/settings', admin((req, res) => {
-    res.json(200, { availability: db.setting('availability'), terms: db.setting('terms'), packages: db.all('SELECT * FROM packages ORDER BY sort, id') });
+    res.json(200, { availability: db.setting('availability'), terms: db.setting('terms'), packages: db.all('SELECT * FROM packages ORDER BY sort, id').map(publicPackage) });
   }));
   r.put('/api/admin/settings', admin((req, res) => {
     if (req.body.availability) db.saveSetting('availability', cleanAvailability(req.body.availability));
@@ -132,17 +186,17 @@ function build() {
   }));
   r.post('/api/admin/packages', admin((req, res) => {
     const p = cleanPackage(req.body);
-    const out = db.run(`INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, bg_video, bg_poster, sort, active)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.bg_video, p.bg_poster, p.sort, p.active]);
-    res.json(200, { package: db.get('SELECT * FROM packages WHERE id = ?', [out.lastInsertRowid]) });
+    const out = db.run(`INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort, active)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`, [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.sort, p.active]);
+    res.json(200, { package: publicPackage(db.get('SELECT * FROM packages WHERE id = ?', [out.lastInsertRowid])) });
   }));
   r.put('/api/admin/packages/:id', admin((req, res) => {
     const id = Number(req.params.id);
     if (!db.get('SELECT 1 FROM packages WHERE id = ?', [id])) throw new HttpError(404, 'No such package.');
     const p = cleanPackage(req.body);
-    db.run(`UPDATE packages SET slug=?, name=?, summary=?, minutes=?, photos=?, turnaround_days=?, price_cents=?, deposit_cents=?, bg_video=?, bg_poster=?, sort=?, active=? WHERE id=?`,
-      [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.bg_video, p.bg_poster, p.sort, p.active, id]);
-    res.json(200, { package: db.get('SELECT * FROM packages WHERE id = ?', [id]) });
+    db.run(`UPDATE packages SET slug=?, name=?, summary=?, minutes=?, photos=?, turnaround_days=?, price_cents=?, deposit_cents=?, sort=?, active=? WHERE id=?`,
+      [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.sort, p.active, id]);
+    res.json(200, { package: publicPackage(db.get('SELECT * FROM packages WHERE id = ?', [id])) });
   }));
 
   return r;
@@ -192,7 +246,6 @@ function cleanAvailability(a) {
 }
 
 function cleanPackage(b) {
-  const media = (v) => { const s = text(v, 300); if (s && !/^(\/media\/[A-Za-z0-9._-]+|https:\/\/\S+)$/.test(s)) throw new HttpError(400, 'Background files go in /media/ (or a full https:// link).'); return s; };
   const p = {
     slug: text(b.slug, 40).toLowerCase(),
     name: text(b.name, 60),
@@ -202,8 +255,6 @@ function cleanPackage(b) {
     turnaround_days: int(b.turnaround_days, 1, 120, 'Turnaround (days)'),
     price_cents: int(b.price_cents, 0, 10000000, 'Price'),
     deposit_cents: int(b.deposit_cents, 0, 10000000, 'Deposit'),
-    bg_video: media(b.bg_video),
-    bg_poster: media(b.bg_poster),
     sort: int(b.sort == null ? 0 : b.sort, 0, 1000, 'Order'),
     active: b.active === false || b.active === 0 ? 0 : 1,
   };

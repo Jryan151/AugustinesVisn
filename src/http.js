@@ -102,7 +102,8 @@ function createRouter() {
         req.params = {}; r.names.forEach((n, i) => { req.params[n] = decodeURIComponent(m[i + 1]); });
         req.query = Object.fromEntries(url.searchParams);
         req.cookies = parseCookies(req);
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
+        if (r.stream) req.body = {}; // the handler reads the upload itself, straight to disk
+        else if (req.method !== 'GET' && req.method !== 'HEAD') {
           req.rawBody = await readBody(req, r.bodyLimit);
           if (!r.raw) {
             try { req.body = req.rawBody ? JSON.parse(req.rawBody) : {}; } catch (e) { throw new HttpError(400, 'That request wasn’t valid JSON.'); }

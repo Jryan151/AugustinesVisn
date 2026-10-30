@@ -31,12 +31,42 @@
       <div id="app" hidden>
         <div class="tabs" role="tablist">
           <button role="tab" aria-selected="true" data-tab="pipeline">Bookings</button>
+          <button role="tab" aria-selected="false" data-tab="clients">Clients</button>
+          <button role="tab" aria-selected="false" data-tab="site">Site</button>
           <button role="tab" aria-selected="false" data-tab="settings">Availability</button>
           <button role="tab" aria-selected="false" data-tab="packages">Packages</button>
         </div>
 
         <section id="tab-pipeline" role="tabpanel">
           <div class="board" id="board"></div>
+        </section>
+
+        <section id="tab-clients" role="tabpanel" hidden>
+          <div class="toolbar">
+            <label class="sr-only" for="client-search">Search clients</label>
+            <input id="client-search" type="text" placeholder="Search by name, email, phone or package" autocomplete="off">
+            <div class="filters" id="client-filters" role="group" aria-label="Show">
+              <button type="button" class="chip" data-stage="" aria-pressed="true">All</button>
+              <button type="button" class="chip" data-stage="upcoming" aria-pressed="false">Upcoming</button>
+              <button type="button" class="chip" data-stage="editing" aria-pressed="false">Editing</button>
+              <button type="button" class="chip" data-stage="delivered" aria-pressed="false">Delivered</button>
+              <button type="button" class="chip" data-stage="repeat" aria-pressed="false">Repeat</button>
+            </div>
+          </div>
+          <div id="client-list"></div>
+        </section>
+
+        <section id="tab-site" role="tabpanel" hidden>
+          <div class="panel">
+            <h2>Background photos</h2>
+            <p class="muted">Behind every page of the site. The first one shows first; the others fade in one after another. Wide (landscape) photos at least 2000 px across look best. Up to <span id="bg-max">6</span>.</p>
+            <div class="thumbs" id="bg-photos"></div>
+            <div class="upload-row">
+              <label class="btn btn-primary" for="bg-input">Add photos</label>
+              <input class="sr-only" id="bg-input" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+              <span class="muted" id="bg-status" role="status"></span>
+            </div>
+          </div>
         </section>
 
         <section id="tab-settings" role="tabpanel" hidden>
@@ -66,6 +96,22 @@
       </div>
     </div>
   </main>
+
+  <!-- A client's finished photos: upload, check, send. -->
+  <dialog id="photos" aria-labelledby="photos-title">
+    <div class="dialog-head">
+      <div><h2 id="photos-title">Photos</h2><p class="muted" id="photos-sub"></p></div>
+      <button class="btn btn-text" type="button" data-close aria-label="Close">Close</button>
+    </div>
+    <div class="dropzone" id="dropzone">
+      <label class="btn btn-primary" for="photo-input">Add photos</label>
+      <input class="sr-only" id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+      <span class="muted">or drop them here. Full-size JPGs; the client downloads exactly what you upload.</span>
+    </div>
+    <p class="muted" id="photos-status" role="status"></p>
+    <div class="thumbs" id="photo-grid"></div>
+    <div class="dialog-foot" id="photos-foot"></div>
+  </dialog>
 
   <script src="/common.js"></script>
   <script src="/admin.js"></script>

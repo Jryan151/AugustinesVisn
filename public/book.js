@@ -39,13 +39,11 @@
   addEventListener('popstate', (e) => show((e.state && e.state.step) || 1, false));
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => history.back()));
 
-  /* ---------- background: the chosen package's clip, behind a strong veil so the forms stay calm ---------- */
+  /* ---------- background: the chosen package's photo replaces the site's, behind a strong veil so forms stay calm ---------- */
   function setBackground(p) {
     const host = $('bg');
-    if (!p || !p.bg_poster) { host.innerHTML = ''; return; }
-    host.innerHTML = `<div class="bg strong" aria-hidden="true"><img class="bg-media" src="${esc(p.bg_poster)}" alt="" decoding="async">` +
-      (p.bg_video ? `<video class="bg-media bg-video" muted playsinline loop preload="none" tabindex="-1" data-sm="${esc(p.bg_video)}" data-lg="${esc(p.bg_video)}"></video>` : '') + '</div>';
-    AV.startBackground(host);
+    if (!p || !p.image) { host.innerHTML = ''; return; }
+    host.innerHTML = `<div class="bg strong" aria-hidden="true"><img class="bg-photo on" src="${esc(p.image.web)}" alt="" decoding="async"><div class="bg-veil"></div></div>`;
   }
 
   /* ---------- step 1: package ---------- */

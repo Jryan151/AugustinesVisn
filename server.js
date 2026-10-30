@@ -11,6 +11,7 @@ const config = require('./src/config');
 const db = require('./src/db');
 const routes = require('./src/routes');
 const jobs = require('./src/jobs');
+const sitemedia = require('./src/sitemedia');
 const { HttpError, serveStatic, securityHeaders, decorate } = require('./src/http');
 
 // Clean addresses for the pages.
@@ -19,23 +20,17 @@ const REWRITES = [
   [/^\/booked\/?$/, '/booked.html'],
   [/^\/admin\/?$/, '/admin.html'],
   [/^\/prep\/[A-Za-z0-9_-]+\/?$/, '/prep.html'],
+  [/^\/gallery\/[A-Za-z0-9_-]+\/?$/, '/gallery.html'],
 ];
 
-/* The home page's moving background. Put these in public/media/ and it appears; without them the hero is a still
-   warm gradient. hero-poster.jpg shows at once; hero-540.mp4 (phones) and hero-1080.mp4 (big screens) fade in once the
-   page has loaded. Keep the clip a seamless 8–12 s loop with no sound. */
-function heroMarkup() {
-  const has = (f) => fs.existsSync(path.join(config.publicDir, 'media', f));
-  if (!has('hero-poster.jpg')) return '<div class="bg" aria-hidden="true"></div>'; // the warm gradient on its own
-  const sm = has('hero-540.mp4') ? '/media/hero-540.mp4' : '';
-  const lg = has('hero-1080.mp4') ? '/media/hero-1080.mp4' : sm;
-  return '<div class="bg" aria-hidden="true"><img class="bg-media" src="/media/hero-poster.jpg" alt="" decoding="async">' +
-    (sm || lg ? `<video class="bg-media bg-video" muted playsinline loop preload="none" disablepictureinpicture tabindex="-1" data-sm="${sm || lg}" data-lg="${lg}"></video>` : '') +
-    '<div class="bg-veil"></div></div>';
-}
+// Pages that get the site background (Admin › Site). The marker in each is <!--SITE_BG--> or, for pages with forms
+// (a heavier veil over the photo), <!--SITE_BG strong-->.
+const PAGES = { '/': 'index.html', '/index.html': 'index.html', '/book.html': 'book.html', '/booked.html': 'booked.html', '/prep.html': 'prep.html' };
 
-function homePage(req, res) {
-  const html = fs.readFileSync(path.join(config.publicDir, 'index.html'), 'utf8').replace('<!--HERO_BG-->', heroMarkup());
+function page(file, res) {
+  const html = fs.readFileSync(path.join(config.publicDir, file), 'utf8')
+    .replace('<!--SITE_BG strong-->', () => sitemedia.backgroundMarkup(true))
+    .replace('<!--SITE_BG-->', () => sitemedia.backgroundMarkup(false));
   res.setHeader('Cache-Control', 'no-cache');
   res.send(200, html, 'text/html; charset=utf-8');
 }
@@ -48,13 +43,22 @@ function createApp({ dbFile = config.dbFile } = {}) {
     securityHeaders(res);
     try {
       const pathname = new URL(req.url, 'http://local').pathname;
-      if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) return homePage(req, res);
+      if (req.method === 'GET') {
+        let p = pathname;
+        for (const [re, to] of REWRITES) if (re.test(p)) { p = to; break; }
+        if (PAGES[p]) return page(PAGES[p], res);
+      }
       if (await router.handle(req, res)) return;
+      if (sitemedia.serveMedia(req, res)) return;
       if (serveStatic(config.publicDir, req, res, REWRITES)) return;
       if (pathname.startsWith('/api/')) return res.json(404, { error: 'Not found.' });
       res.send(404, 'Not found');
     } catch (e) {
-      if (e instanceof HttpError) return res.json(e.status, Object.assign({ error: e.message }, e.extra));
+      if (e instanceof HttpError) {
+        // A gallery link opened in the browser gets a page, not raw JSON.
+        if (/^\/g\//.test(req.url) && e.status === 404) return res.send(404, 'This gallery isn\u2019t available. Check the link in your email.');
+        return res.json(e.status, Object.assign({ error: e.message }, e.extra));
+      }
       if (/UNIQUE constraint failed: packages\.slug/.test(e.message)) return res.json(400, { error: 'Another package already uses that link name.' });
       console.error(req.method, req.url, e);
       res.json(500, { error: 'Something went wrong on our side. Try again.' });

@@ -22,6 +22,9 @@ Flashy is not a reason. Every feature has to fit with the others, not compete wi
 - Reversible admin actions: act at once and show an Undo toast. Anything that emails a client waits `UNDO_MS` in
   the outbox first. Never undo after an email has left.
 - Every email goes through `mail.queue` (one per kind per booking). Nothing sends inline.
+- Uploads stream to disk (never whole in memory), are checked by their bytes (JPG/PNG/WebP), and the original is
+  kept untouched for the client. Pages show the web copies, with width/height so nothing jumps.
+- Client photos are private: only reachable through the booking's token, and only once it's delivered.
 - Skeletons only where there's nothing cached, and only visible after 300 ms (the `.skeleton` class does this).
 
 ## Code style

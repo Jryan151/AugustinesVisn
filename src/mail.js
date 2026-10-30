@@ -58,7 +58,7 @@ function compose(kind, b, pkg) {
     case 'gallery': return {
       to: b.client_email,
       subject: `Your photos are ready`,
-      body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} gallery is ready:\n${b.gallery_url}\n\nDownload what you want to keep; the gallery stays up for 60 days.${sign}`,
+      body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} photos are ready:\n${b.gallery_url}\n\nDownload the ones you love, or all of them at once, and keep a copy somewhere safe.${sign}`,
     };
     case 'review': return {
       to: b.client_email,

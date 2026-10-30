@@ -109,17 +109,27 @@ function setStatus(id, status) {
   return byId(id);
 }
 
-/** Delivered: saves the gallery link and queues the gallery email (it waits a few seconds, for Undo). */
+/**
+ * Delivered: queues the gallery email (it waits a few seconds, for Undo). With no link given, it sends the photos
+ * uploaded here (the client's /gallery/<token> page); with a link, it sends that (a gallery hosted elsewhere).
+ */
 function deliver(id, galleryUrl) {
   const b = byId(id);
   if (!b) throw new HttpError(404, 'No such booking.');
-  if (!['shot', 'editing', 'prepped', 'booked'].includes(b.status)) throw new HttpError(400, `A ${b.status} booking can’t be delivered.`);
-  let url;
-  try { url = new URL(String(galleryUrl || '').trim()); } catch (e) { url = null; }
-  if (!url || url.protocol !== 'https:') throw new HttpError(400, 'Paste the gallery’s full link (starting with https://).');
+  if (!['shot', 'editing', 'prepped', 'booked'].includes(b.status)) throw new HttpError(400, `A ${b.status} booking can\u2019t be delivered.`);
+  let link;
+  if (String(galleryUrl || '').trim()) {
+    let url;
+    try { url = new URL(String(galleryUrl).trim()); } catch (e) { url = null; }
+    if (!url || url.protocol !== 'https:') throw new HttpError(400, 'Paste the gallery\u2019s full link (starting with https://).');
+    link = url.href;
+  } else {
+    if (!require('./galleries').count(id)) throw new HttpError(400, 'Upload the photos first, or paste a gallery link.');
+    link = `${config.baseUrl}/gallery/${b.token}`;
+  }
   const iso = db.nowIso();
   return db.tx(() => {
-    db.run("UPDATE bookings SET status = 'delivered', gallery_url = ?, delivered_at = ?, updated_at = ? WHERE id = ?", [url.href, iso, iso, id]);
+    db.run("UPDATE bookings SET status = 'delivered', gallery_url = ?, delivered_at = ?, updated_at = ? WHERE id = ?", [link, iso, iso, id]);
     mail.queue('gallery', byId(id), { delayMs: UNDO_MS });
     return { booking: byId(id), previous: b.status };
   });
@@ -175,7 +185,9 @@ function publicView(b) {
 }
 
 function adminList() {
-  return db.all(`SELECT b.*, p.name AS package_name FROM bookings b JOIN packages p ON p.id = b.package_id
+  return db.all(`SELECT b.*, p.name AS package_name,
+      (SELECT COUNT(*) FROM photos ph WHERE ph.booking_id = b.id AND ph.deleted_at IS NULL) AS photo_count
+    FROM bookings b JOIN packages p ON p.id = b.package_id
     WHERE b.status NOT IN ('expired', 'hold') AND (b.status != 'cancelled' OR b.cancelled_at > ?)
     ORDER BY b.start_at`, [new Date(Date.now() - 30 * 86400000).toISOString()])
     .map((b) => Object.assign(b, { prep: b.prep_json ? JSON.parse(b.prep_json) : null, when: mail.when(b) }));
