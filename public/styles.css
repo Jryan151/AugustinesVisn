@@ -157,18 +157,37 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .nav-home:not(.shown) { opacity: 0; visibility: hidden; transform: translateY(-8px); }
 .section { padding: 56px 0; }
 .packages { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.pkg { position: relative; overflow: hidden; padding: 22px; display: flex; flex-direction: column; gap: 10px; text-decoration: none; }
-/* A package's own photo behind its card, darkened toward the bottom where the text sits. */
-.pkg.has-img { min-height: 340px; justify-content: flex-end; }
-.pkg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-.pkg.has-img::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to bottom, rgba(8, 8, 11, 0.05) 0%, rgba(8, 8, 11, 0.55) 45%, rgba(8, 8, 11, 0.92) 100%); }
-.pkg.has-img > :not(.pkg-img) { position: relative; z-index: 2; }
+.pkg { position: relative; overflow: hidden; padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+/* A package's own photo behind its card: softly blurred and darkened toward the bottom, so the text reads over any
+   photo, light or dark. The photo and its veil sit below the text inside the card's own layer (isolation). */
+.pkg.has-img { min-height: 340px; justify-content: flex-end; isolation: isolate; text-shadow: 0 1px 12px rgba(8, 8, 11, 0.6); }
+.pkg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.pkg.has-img::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(to bottom, rgba(8, 8, 11, 0.45) 0%, rgba(8, 8, 11, 0.65) 45%, rgba(8, 8, 11, 0.92) 100%);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  transition: opacity 0.25s ease;
+}
 .pkg.has-img .facts, .pkg.has-img .muted { color: #cfccc6; }
 .pkg h3 { margin: 0; }
 .pkg .price { font-size: 1.6rem; font-weight: 600; }
 .pkg .facts { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 14px; }
-.pkg .go { margin-top: auto; color: var(--accent); font-weight: 600; }
+.pkg-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pkg .go { color: var(--accent); font-weight: 600; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.pkg .go::after { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: inherit; } /* the whole card books */
 .pkg:hover { border-color: var(--line-strong); }
+/* "Tap to see picture": fine print in the corner; it sits above the card's link. */
+.peek {
+  position: relative; z-index: 2; min-height: 44px; padding: 0 2px; border: 0; background: none; cursor: pointer;
+  color: #cfccc6; font: inherit; font-size: 12px; letter-spacing: 0.04em; text-shadow: inherit;
+}
+.peek-label { border-bottom: 1px solid rgba(207, 204, 198, 0.4); padding-bottom: 1px; }
+.pkg.has-img > :not(.pkg-img, .pkg-foot), .pkg-foot .go { transition: opacity 0.25s ease; }
+/* Showing the photo: blur, veil and text fade away; the button covers the card, so a tap anywhere comes back. */
+.pkg.peeking::before { opacity: 0; }
+.pkg.peeking > :not(.pkg-img, .pkg-foot), .pkg.peeking .go { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0s 0.25s; }
+.pkg.peeking .peek { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-end; padding: 16px; }
+.pkg.peeking .peek-label { color: var(--text); background: rgba(8, 8, 11, 0.6); border: 0; border-radius: 999px; padding: 8px 14px; } /* readable on a light photo too */
 .steps-how { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); counter-reset: how; }
 .steps-how li { list-style: none; padding: 20px; counter-increment: how; }
 .steps-how li::before { content: counter(how); display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line-strong); margin-bottom: 10px; font-variant-numeric: tabular-nums; }

@@ -11,15 +11,27 @@
     return `<img class="pkg-img" data-key="${esc(img.key)}" src="${esc(img.thumb)}" srcset="${esc(img.thumb)} 600w, ${esc(img.web)} 2000w" sizes="(max-width: 600px) 100vw, 360px"
       width="${img.width}" height="${img.height}" alt="" loading="lazy" decoding="async">`;
   }
+  // The whole card books (the Book link stretches over it). On a photo card the photo is softly blurred so the text
+  // reads over any photo, and "Tap to see picture" clears the text and the blur so the photo shows on its own.
   function card(p) {
-    return `<a class="pkg glass${p.image ? ' has-img' : ''}" href="/book?p=${encodeURIComponent(p.slug)}">${photo(p.image)}
+    const peek = p.image ? `<button type="button" class="peek" aria-pressed="false"><span class="peek-label">Tap to see picture</span><span class="sr-only"> for ${esc(p.name)}</span></button>` : '';
+    return `<article class="pkg glass${p.image ? ' has-img' : ''}">${photo(p.image)}
       <h3>${esc(p.name)}</h3>
       <div class="price">${money(p.price_cents)}</div>
       <div class="facts num"><span>${p.minutes} min</span><span>${p.photos} edited photos</span><span>Ready in ${p.turnaround_days} days</span></div>
       <p class="muted">${esc(p.summary)}</p>
-      <span class="go">Book ${esc(p.name)} →</span>
-    </a>`;
+      <div class="pkg-foot"><a class="go" href="/book?p=${encodeURIComponent(p.slug)}">Book ${esc(p.name)} →</a>${peek}</div>
+    </article>`;
   }
+
+  // One tap shows the photo clean; tapping anywhere on it again brings the text back.
+  list.addEventListener('click', (e) => {
+    const b = e.target.closest('.peek');
+    if (!b) return;
+    const on = b.closest('.pkg').classList.toggle('peeking');
+    b.setAttribute('aria-pressed', String(on));
+    b.querySelector('.peek-label').textContent = on ? 'Tap to go back' : 'Tap to see picture';
+  });
 
   // The bar (with its Book button) shows once the name has scrolled out of view, so the first screen stays clean.
   const nav = document.getElementById('nav');
