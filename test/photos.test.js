@@ -209,6 +209,6 @@ test('the name comes from one setting, on every page', async () => {
   for (const p of ['/', '/book', '/admin']) {
     const html = (await call('GET', p)).data.toString();
     assert.ok(!html.includes('{{BRAND}}'), p);
-    assert.match(html, /Augustine’s Visn/, p);
+    assert.match(html, /Augustines.Visn/, p);
   }
 });

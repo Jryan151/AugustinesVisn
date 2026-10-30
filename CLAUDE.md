@@ -7,7 +7,7 @@ Flashy is not a reason. Every feature has to fit with the others, not compete wi
 ## Design rules
 - Two surfaces only: `.glass` where people browse (nav, package cards over the background), `.panel` (solid) where
   people commit (time picker, details, payment, admin). Never glass on a form.
-- One dark base, one accent (golden-hour amber, `--accent`), two typefaces (Cinzel for display, Space Grotesk for text).
+- One dark base, one accent (golden-hour amber, `--accent`), two typefaces (Instrument Serif for display and the name (matches the business card; the name is always upper-case), Space Grotesk for text).
   New colours go in `:root` as tokens.
 - Motion only where it has a job: the background fade-in and short (≤ 300 ms) view transitions. No hover lifts, no
   animation libraries. Everything respects `prefers-reduced-motion`. Nothing waits on an animation to accept input.

@@ -7,6 +7,10 @@
    Everything else: one dark base, one accent (golden hour), two typefaces. Motion is only the background fade-in
    and short page/step transitions, and all of it turns off under "reduce motion".
    ===================================================================== */
+/* Both typefaces are served from this site (public/fonts, SIL Open Font License): no outside font service. */
+@font-face { font-family: 'Instrument Serif'; src: url('/fonts/InstrumentSerif-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Space Grotesk'; src: url('/fonts/SpaceGrotesk-Variable.ttf') format('truetype'); font-weight: 300 700; font-style: normal; font-display: swap; }
+
 :root {
   --bg: #08080b;
   --panel: #111116;
@@ -23,7 +27,7 @@
   --radius: 18px;
   --radius-sm: 12px;
   --font-body: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Cinzel', Georgia, serif;
+  --font-display: 'Instrument Serif', 'Didot', 'Bodoni 72', Georgia, serif; /* tall, narrow, high-contrast: the business card's face */
   --gutter: max(16px, env(safe-area-inset-left), env(safe-area-inset-right));
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
@@ -41,7 +45,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 h1, h2, h3 { line-height: 1.15; margin: 0 0 0.4em; text-wrap: balance; font-weight: 600; }
-h1, .display { font-family: var(--font-display); letter-spacing: 0.02em; }
+h1, .display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; }
 h1 { font-size: clamp(2.1rem, 6vw, 3.6rem); }
 h2 { font-size: clamp(1.4rem, 3.4vw, 1.9rem); }
 h3 { font-size: 1.1rem; }
@@ -87,7 +91,7 @@ a { color: inherit; }
   margin: max(12px, env(safe-area-inset-top)) auto 0; width: min(1080px, calc(100% - 2 * var(--gutter)));
   padding: 6px 6px 6px 18px; border-radius: 999px;
 }
-.brand { font-family: var(--font-display); font-weight: 600; text-decoration: none; letter-spacing: 0.04em; white-space: nowrap; }
+.brand { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; text-transform: uppercase; text-decoration: none; letter-spacing: 0.06em; white-space: nowrap; }
 .nav-links { display: flex; gap: 4px; align-items: center; }
 .nav-links a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; text-decoration: none; color: var(--muted); border-radius: 999px; }
 .nav-links a:not(.btn):hover { color: var(--text); }
@@ -131,9 +135,19 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(28px, 5vh, 44px);
   padding: max(24px, env(safe-area-inset-top)) var(--gutter) max(24px, env(safe-area-inset-bottom)); text-align: center;
 }
+/* The name as on the business card: NAME | PHOTOGRAPHER, all caps, tall narrow serif. On phones the role sits under it. */
 .hero-title {
-  margin: 0; font-family: var(--font-display); font-weight: 600; line-height: 1.02; letter-spacing: 0.08em;
-  font-size: clamp(2.6rem, 11vw, 7rem); text-wrap: balance; text-shadow: 0 2px 30px rgba(0, 0, 0, 0.45);
+  margin: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 0.45em; row-gap: 0.2em;
+  font-family: var(--font-display); font-weight: 400; line-height: 1; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: clamp(2.2rem, 5vw, 5.6rem); text-shadow: 0 2px 30px rgba(0, 0, 0, 0.45);
+}
+@media (min-width: 641px) { .hero-title { flex-wrap: nowrap; white-space: nowrap; } }
+.hero-sep { font-weight: 300; opacity: 0.7; transform: scaleY(1.1); }
+.hero-role { font-size: 1em; }
+@media (max-width: 640px) {
+  .hero-title { font-size: 11vw; }
+  .hero-sep { display: none; }
+  .hero-role { flex-basis: 100%; font-size: 0.42em; letter-spacing: 0.32em; opacity: 0.9; }
 }
 .btn-large { min-height: 54px; padding: 0 36px; font-size: 17px; letter-spacing: 0.02em; }
 /* Home: the bar appears once the name has scrolled away. */

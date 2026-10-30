@@ -6,9 +6,7 @@
   <title>{{BRAND}} · Photography</title>
   <meta name="description" content="Portrait, couples and automotive photography at golden hour. See the packages and book a session online.">
   <meta name="theme-color" content="#08080b">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Space+Grotesk:wght@400;600&display=swap">
+  <link rel="preload" href="/fonts/InstrumentSerif-Regular.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="/styles.css">
   <!--SITE_CSS-->
   <!-- Most visitors go on to book: get that page ready while they read. -->
@@ -29,7 +27,7 @@
 
   <main>
     <header class="hero" id="hero">
-      <h1 class="hero-title">{{BRAND}}</h1>
+      <h1 class="hero-title"><span>{{BRAND}}</span><span class="hero-sep" aria-hidden="true">|</span><span class="hero-role">Photographer</span></h1>
       <a class="btn btn-primary btn-large" href="/book">Book now</a>
     </header>
 

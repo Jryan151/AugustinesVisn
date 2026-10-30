@@ -16,14 +16,14 @@ class HttpError extends Error {
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8',
+  '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
 };
 
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'inline-speculation-rules'",
-  "style-src 'self' https://fonts.googleapis.com",
-  'font-src https://fonts.gstatic.com',
+  "style-src 'self'",
+  "font-src 'self'",
   "img-src 'self' data: https:",
   "media-src 'self' https:",
   "connect-src 'self'",
@@ -135,7 +135,7 @@ function serveStatic(dir, req, res, rewrites) {
   // Scripts and styles: kept for a year when the page asked with its build stamp (?v=…, a new one every update);
   // otherwise checked every time. Pages are always checked.
   const stamped = /[?&]v=[0-9a-f]+/.test(req.url);
-  res.setHeader('Cache-Control', ext === '.html' ? 'no-cache' : /\.(mp4|webm|jpg|jpeg|png|webp)$/.test(ext) ? 'public, max-age=2592000'
+  res.setHeader('Cache-Control', ext === '.html' ? 'no-cache' : /\.(mp4|webm|jpg|jpeg|png|webp|ttf|woff2)$/.test(ext) ? 'public, max-age=2592000'
     : stamped ? 'public, max-age=31536000, immutable' : 'no-cache');
   // Video needs byte ranges, or Safari won't play it.
   const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
