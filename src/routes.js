@@ -23,7 +23,7 @@
      GET  /api/admin/bookings           the pipeline
      POST /api/admin/bookings/:id/status · /deliver · /cancel · /balance-paid · /undo
      GET/PUT /api/admin/settings
-     POST /api/admin/packages · PUT /api/admin/packages/:id
+     POST /api/admin/packages · PUT /api/admin/packages/:id · PUT /api/admin/packages/order { ids }
      PUT/DELETE /api/admin/packages/:id/image        the photo behind a package's card (PUT = raw image upload)
      PUT /api/admin/packages/:id/image/frame · PUT /api/admin/site/background/:key/frame   nudge: { fx, fy, zoom }
      GET/PUT /api/admin/bookings/:id/photos          a client's finished photos (PUT = one raw image per request)
@@ -229,18 +229,31 @@ function build() {
     if (req.body.terms !== undefined) db.saveSetting('terms', longText(req.body.terms, 3000));
     res.json(200, { availability: db.setting('availability'), terms: db.setting('terms') });
   }));
+  // The order packages appear in, everywhere (home page, booking): the full list of ids, first to last.
+  r.put('/api/admin/packages/order', admin((req, res) => {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number) : [];
+    const all = db.all('SELECT id FROM packages').map((r) => r.id);
+    if (ids.length !== all.length || new Set(ids).size !== ids.length || !ids.every((i) => all.includes(i))) {
+      throw new HttpError(400, 'Send every package once, in the new order.');
+    }
+    db.tx(() => ids.forEach((id, i) => db.run('UPDATE packages SET sort = ? WHERE id = ?', [i + 1, id])));
+    res.json(200, { packages: db.all('SELECT * FROM packages ORDER BY sort, id').map(publicPackage) });
+  }));
   r.post('/api/admin/packages', admin((req, res) => {
     const p = cleanPackage(req.body);
+    // A new package goes to the end of the list; the photographer moves it from there.
+    const last = db.get('SELECT COALESCE(MAX(sort), 0) AS n FROM packages').n;
     const out = db.run(`INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort, active)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`, [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.sort, p.active]);
+      VALUES (?,?,?,?,?,?,?,?,?,?)`, [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, last + 1, p.active]);
     res.json(200, { package: publicPackage(db.get('SELECT * FROM packages WHERE id = ?', [out.lastInsertRowid])) });
   }));
   r.put('/api/admin/packages/:id', admin((req, res) => {
     const id = Number(req.params.id);
     if (!db.get('SELECT 1 FROM packages WHERE id = ?', [id])) throw new HttpError(404, 'No such package.');
     const p = cleanPackage(req.body);
-    db.run(`UPDATE packages SET slug=?, name=?, summary=?, minutes=?, photos=?, turnaround_days=?, price_cents=?, deposit_cents=?, sort=?, active=? WHERE id=?`,
-      [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.sort, p.active, id]);
+    // Saving a package never moves it: its place in the list is set only by the order below.
+    db.run(`UPDATE packages SET slug=?, name=?, summary=?, minutes=?, photos=?, turnaround_days=?, price_cents=?, deposit_cents=?, active=? WHERE id=?`,
+      [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.active, id]);
     res.json(200, { package: publicPackage(db.get('SELECT * FROM packages WHERE id = ?', [id])) });
   }));
 
@@ -300,7 +313,6 @@ function cleanPackage(b) {
     turnaround_days: int(b.turnaround_days, 1, 120, 'Turnaround (days)'),
     price_cents: int(b.price_cents, 0, 10000000, 'Price'),
     deposit_cents: int(b.deposit_cents, 0, 10000000, 'Deposit'),
-    sort: int(b.sort == null ? 0 : b.sort, 0, 1000, 'Order'),
     active: b.active === false || b.active === 0 ? 0 : 1,
   };
   if (!/^[a-z0-9-]{2,40}$/.test(p.slug)) throw new HttpError(400, 'The link name uses lowercase letters, numbers and dashes.');

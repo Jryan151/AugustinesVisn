@@ -372,3 +372,9 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 .grid figure.not-ready::after { content: 'Preview on its way'; color: var(--muted); font-size: 14px; }
 .grid figure.not-ready img { display: none; }
 .card .balance { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }
+
+/* ---------- admin: package order ---------- */
+.pkg-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.pkg-head h2 { margin: 0; }
+.pkg-move { display: flex; align-items: center; gap: 6px; }
+.pkg-move .btn { min-width: 44px; font-size: 18px; }

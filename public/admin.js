@@ -428,8 +428,14 @@
           <span class="muted" data-pkg-status="${p.id}" role="status"></span>
         </div>
       </div>` : '<p class="muted wide">Save the package first, then add its card photo.</p>';
+    const i = packages.findIndex((x) => x.id === p.id);
+    const move = p.id ? `<div class="pkg-move" role="group" aria-label="Order on the site">
+        <span class="muted num">${i + 1} of ${packages.length}</span>
+        <button type="button" class="btn btn-small" data-move="-1" data-id="${p.id}" aria-label="Move ${esc(p.name)} earlier"${i === 0 ? ' disabled' : ''}>↑</button>
+        <button type="button" class="btn btn-small" data-move="1" data-id="${p.id}" aria-label="Move ${esc(p.name)} later"${i === packages.length - 1 ? ' disabled' : ''}>↓</button>
+      </div>` : '<span class="muted">Goes last; move it once saved.</span>';
     return `<form class="panel pkg-form" data-id="${p.id || ''}">
-      <h2>${esc(p.name || 'New package')}</h2>
+      <div class="pkg-head"><h2>${esc(p.name || 'New package')}</h2>${move}</div>
       <div class="pkg-edit">
         ${image}
         ${f('name', 'Title <span class="hint">(shown on the package card)</span>', p.name || '', 'text', ' wide')}
@@ -440,7 +446,6 @@
         ${f('minutes', 'Length (minutes)', p.minutes || 60, 'number')}
         ${f('photos', 'Edited photos', p.photos || 25, 'number')}
         ${f('turnaround_days', 'Ready in (days)', p.turnaround_days || 7, 'number')}
-        ${f('sort', 'Order', p.sort || 0, 'number')}
         <label class="check wide"><input type="checkbox" name="active"${p.active === 0 ? '' : ' checked'}> Open for booking</label>
       </div>
       <button class="btn btn-primary" type="submit">Save</button>
@@ -453,7 +458,7 @@
     const body = {
       name: v('name'), slug: v('slug'), summary: v('summary'),
       price_cents: Math.round(Number(v('price')) * 100), deposit_cents: Math.round(Number(v('deposit')) * 100),
-      minutes: Number(v('minutes')), photos: Number(v('photos')), turnaround_days: Number(v('turnaround_days')), sort: Number(v('sort')),
+      minutes: Number(v('minutes')), photos: Number(v('photos')), turnaround_days: Number(v('turnaround_days')),
       active: form.elements.active.checked,
     };
     try {
@@ -477,6 +482,23 @@
     catch (err) { if (err.status === 401) return handle(err); status.textContent = err.message; }
   });
   $('package-forms').addEventListener('click', async (e) => {
+    const mv = e.target.closest('[data-move]');
+    if (mv) {
+      const before = packages.map((p) => p.id);
+      const ids = before.slice();
+      const i = ids.indexOf(Number(mv.dataset.id)); const j = i + Number(mv.dataset.move);
+      if (j < 0 || j >= ids.length) return;
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      try {
+        await saveOrder(ids);
+        const name = packages.find((p) => p.id === Number(mv.dataset.id)).name;
+        toast(`${name} is now ${ordinal(j + 1)} on the site.`, { actionLabel: 'Undo', onAction: () => saveOrder(before).catch(handle) });
+        // Keep the moved package's button under the finger/keyboard.
+        const again = document.querySelector(`[data-move="${mv.dataset.move}"][data-id="${mv.dataset.id}"]`);
+        if (again && !again.disabled) again.focus();
+      } catch (err) { handle(err); }
+      return;
+    }
     const adj = e.target.closest('[data-pkg-frame]');
     if (adj) {
       const p = packages.find((x) => String(x.id) === adj.dataset.pkgFrame);
@@ -486,6 +508,11 @@
     if (!confirm('Remove this package’s card photo?')) return;
     try { await api(`/api/admin/packages/${rm.dataset.pkgImageRemove}/image`, { method: 'DELETE' }); toast('Removed.'); loadSettings(); } catch (err) { handle(err); }
   });
+  const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] || 'th');
+  async function saveOrder(ids) {
+    packages = (await api('/api/admin/packages/order', { method: 'PUT', body: { ids } })).packages;
+    renderPackages();
+  }
   $('add-package').addEventListener('click', () => {
     if (document.querySelector('.pkg-form[data-id=""]')) return;
     $('package-forms').insertAdjacentHTML('beforeend', packageForm({}));

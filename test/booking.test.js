@@ -163,3 +163,20 @@ test('after an update, pages point at the new scripts and styles (never a stale 
   assert.match(stamped.headers.get('cache-control'), /immutable/);
   assert.equal((await call('GET', '/styles.css')).headers.get('cache-control'), 'no-cache');
 });
+
+test('package order: new packages go last, saving never moves one, and the order is set in one go', async () => {
+  const login = await call('POST', '/api/admin/login', { password: 'test-password' });
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  const as = (m, p, b) => call(m, p, b, { Cookie: cookie });
+  const created = await as('POST', '/api/admin/packages', { slug: 'mini', name: 'Mini', summary: '', minutes: 20, photos: 5, turnaround_days: 3, price_cents: 9000, deposit_cents: 3000, active: true });
+  const slugs = async () => (await call('GET', '/api/packages')).data.packages.map((p) => p.slug);
+  assert.equal((await slugs()).at(-1), 'mini', 'a new package goes last');
+  const ids = (await as('GET', '/api/admin/settings')).data.packages.map((p) => p.id);
+  const moved = [created.data.package.id].concat(ids.filter((i) => i !== created.data.package.id));
+  assert.equal((await as('PUT', '/api/admin/packages/order', { ids: moved })).status, 200);
+  assert.equal((await slugs())[0], 'mini', 'moved to the front');
+  await as('PUT', `/api/admin/packages/${created.data.package.id}`, { slug: 'mini', name: 'Mini session', summary: '', minutes: 20, photos: 5, turnaround_days: 3, price_cents: 9000, deposit_cents: 3000, active: true });
+  assert.equal((await slugs())[0], 'mini', 'saving its details keeps its place');
+  assert.equal((await as('PUT', '/api/admin/packages/order', { ids: moved.slice(1) })).status, 400, 'every package, once');
+  assert.equal((await call('PUT', '/api/admin/packages/order', { ids: moved })).status, 401);
+});
