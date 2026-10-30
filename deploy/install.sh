@@ -28,6 +28,9 @@ step() { echo; echo "== $*"; }
 as_app() { run runuser -u "$APP_USER" -- env HOME="/home/$APP_USER" PATH="$PATH" "$@"; }
 
 [ "$(id -u)" = 0 ] || { echo "Run this with sudo (or as root)."; exit 1; }
+# Work from a folder every user can read. Started from /root, pm2 (running as the booking user) can't start Node
+# there and fails with "spawn /usr/bin/node EACCES".
+cd /
 PM2="$(command -v pm2 || true)"
 
 if [ "$REMOVE" = 1 ]; then
