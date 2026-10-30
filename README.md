@@ -42,7 +42,9 @@ npm test
 3. Email: `RESEND_API_KEY` and `MAIL_FROM` (a verified domain). Without them emails print to the console.
 4. Background: put `hero-poster.jpg`, `hero-540.mp4` and `hero-1080.mp4` in `public/media/`
    (a silent, seamless 8–12 s loop). Without them the hero is a warm gradient.
-5. Back up `data/booking.sqlite`.
+5. Back up `data/backups/` (a copy is made every day).
+
+On the content generator server: see DEPLOY.md (one script, separate from the generator).
 
 Refunds are done in the Stripe dashboard.
 

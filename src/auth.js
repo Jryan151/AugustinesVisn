@@ -36,7 +36,13 @@ function requireAdmin(req) {
   if (!isAdmin(req)) throw new HttpError(401, 'Log in first.');
 }
 
-function clientIp(req) { return req.socket.remoteAddress || ''; }
+function clientIp(req) {
+  if (config.trustProxy) {
+    const h = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (h) return h;
+  }
+  return req.socket.remoteAddress || '';
+}
 
 function login(req, res) {
   const ip = clientIp(req);

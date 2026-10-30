@@ -3,6 +3,7 @@
    routes.js — the JSON API.
 
    Public (the booking flow):
+     GET  /api/health                   ok when the app and its database answer
      GET  /api/site                     business name and booking terms
      GET  /api/packages                 what can be booked
      GET  /api/availability             times for a package (?package=slug&from=YYYY-MM-DD&days=42)
@@ -46,6 +47,9 @@ function build() {
   const r = createRouter();
 
   /* ---------- public ---------- */
+  // For the deploy check and uptime monitors: answers only when the database does.
+  r.get('/api/health', (req, res) => { db.get('SELECT 1'); res.json(200, { ok: true }); });
+
   r.get('/api/site', (req, res) => res.json(200, { businessName: config.businessName, terms: db.setting('terms') }));
 
   r.get('/api/packages', (req, res) => {

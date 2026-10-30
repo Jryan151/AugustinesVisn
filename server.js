@@ -64,7 +64,7 @@ function createApp({ dbFile = config.dbFile } = {}) {
 
 if (require.main === module) {
   const server = createApp();
-  server.listen(config.port, () => {
+  server.listen(config.port, config.host, () => {
     console.log(`${config.businessName}: ${config.baseUrl} (admin at /admin)`);
     if (!config.stripeSecretKey) console.log(config.isProd ? 'STRIPE_SECRET_KEY is not set: booking is closed.' : 'No Stripe key: using the development "pay" link.');
   });

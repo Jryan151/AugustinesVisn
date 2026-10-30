@@ -30,6 +30,10 @@ const config = {
   isProd,
   isTest,
   port: parseInt(env('PORT', '3000'), 10),
+  // Listen on this machine only: nginx (or Caddy) in front is the only way in.
+  host: env('HOST', '127.0.0.1'),
+  // Behind nginx/Cloudflare, the visitor's real address comes in a header. Only trusted when this is on.
+  trustProxy: env('TRUST_PROXY', '0') === '1',
   baseUrl: env('BASE_URL', 'http://localhost:3000').replace(/\/+$/, ''),
   businessName: env('BUSINESS_NAME', 'Augustine’s Vision'),
   adminEmail: env('ADMIN_EMAIL', ''),
@@ -43,6 +47,7 @@ const config = {
   resendApiKey: env('RESEND_API_KEY', ''),
   mailFrom: env('MAIL_FROM', ''),
   dbFile: env('DB_FILE', path.join(__dirname, '..', 'data', 'booking.sqlite')),
+  backupDir: env('BACKUP_DIR', path.join(__dirname, '..', 'data', 'backups')),
   publicDir: path.join(__dirname, '..', 'public'),
   // A client's time is held this long while they pay. Stripe's checkout can't expire sooner than 30 minutes.
   holdMinutes: 30,
