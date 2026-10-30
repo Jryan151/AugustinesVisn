@@ -6,6 +6,7 @@
      GET  /api/health                   ok when the app and its database answer
      GET  /api/site                     business name and booking terms
      GET  /api/packages                 what can be booked
+     GET  /api/portfolio/:slug          a package's example shots
      GET  /api/availability             times for a package (?package=slug&from=YYYY-MM-DD&days=42)
      POST /api/bookings                 hold a time and start the deposit (needs an Idempotency-Key header)
      GET  /api/bookings/:token          a client's own booking (the token is private, from their link)
@@ -18,6 +19,8 @@
      GET  /g/:token/all.zip             every photo in one download (once the balance is paid)
      POST /api/gallery/:token/pay       pay the balance (Stripe), which unlocks the clean photos
      GET  /api/dev/pay-balance/:token   development only: pretend the balance was paid
+     POST /api/bookings/:token/zelle-sent · POST /api/gallery/:token/zelle-sent   the client says they sent it by Zelle
+     GET/POST /api/confirm/:code (· /undo)   the photographer's signed one-tap Confirm (Zelle email)
    Admin (logged in):
      POST /api/admin/login · /logout · GET /me
      GET  /api/admin/bookings           the pipeline
@@ -26,10 +29,13 @@
      POST /api/admin/packages · PUT /api/admin/packages/:id · PUT /api/admin/packages/order { ids }
      PUT/DELETE /api/admin/packages/:id/image        the photo behind a package's card (PUT = raw image upload)
      PUT /api/admin/packages/:id/image/frame · PUT /api/admin/site/background/:key/frame   nudge: { fx, fy, zoom }
+     GET/PUT /api/admin/packages/:id/portfolio · DELETE /api/admin/portfolio/:id · POST …/:id/first
      GET/PUT /api/admin/bookings/:id/photos          a client's finished photos (PUT = one raw image per request)
      DELETE /api/admin/photos/:id · POST …/restore · GET /api/admin/photos/:id/:size
      GET /api/admin/site · PUT /api/admin/site/background · DELETE …/:key · POST …/:key/first
      GET /api/admin/clients · PUT /api/admin/clients/notes
+     GET /api/admin/email · POST /api/admin/email/test
+     GET/PUT /api/admin/payments · PUT/DELETE /api/admin/payments/zelle-qr · POST /api/admin/bookings/:id/zelle-received
    ===================================================================== */
 const db = require('./db');
 const config = require('./config');
@@ -40,6 +46,10 @@ const payments = require('./payments');
 const galleries = require('./galleries');
 const sitemedia = require('./sitemedia');
 const clients = require('./clients');
+const zelle = require('./zelle');
+
+/** How clients can pay right now: card (Stripe set up, or the development stand-in) and/or Zelle. */
+const methods = () => ({ card: payments.enabled() || payments.devMode(), zelle: zelle.enabled() });
 const { HttpError, createRouter } = require('./http');
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
@@ -51,7 +61,7 @@ const int = (v, min, max, name) => {
   return n;
 };
 
-const PUBLIC_PACKAGE = 'id, slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, image_json';
+const PUBLIC_PACKAGE = 'id, slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, image_json, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count';
 // A package as the public sees it: its card photo as addresses, not the stored file names.
 const publicPackage = (p) => { const out = Object.assign({}, p, { image: sitemedia.view(sitemedia.packageImage(p)) }); delete out.image_json; return out; };
 const activePackage = (slug) => db.get(`SELECT * FROM packages WHERE slug = ? AND active = 1`, [String(slug || '')]);
@@ -74,10 +84,17 @@ function build() {
     res.end(sitemedia.siteCss());
   });
 
-  r.get('/api/site', (req, res) => res.json(200, { businessName: config.businessName, terms: db.setting('terms') }));
+  r.get('/api/site', (req, res) => res.json(200, { businessName: config.businessName, terms: db.setting('terms'), payments: methods(), zelle: zelle.publicInfo(), zelleHoldHours: zelle.settings().holdHours }));
 
   r.get('/api/packages', (req, res) => {
     res.json(200, { packages: db.all(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE active = 1 ORDER BY sort, id`).map(publicPackage) });
+  });
+
+  // A package's portfolio: its example shots, for /portfolio/<slug>.
+  r.get('/api/portfolio/:slug', (req, res) => {
+    const pkg = db.get(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE slug = ? AND active = 1`, [String(req.params.slug)]);
+    if (!pkg) throw new HttpError(404, 'No such package.');
+    res.json(200, { package: publicPackage(pkg), photos: sitemedia.portfolio(pkg.id) });
   });
 
   r.get('/api/availability', (req, res) => {
@@ -101,14 +118,23 @@ function build() {
 
   r.get('/api/bookings/:token', (req, res) => {
     const b = bookings.byToken(req.params.token);
-    if (!b || b.status === 'expired') throw new HttpError(404, 'We couldn’t find that booking.');
-    res.json(200, bookings.publicView(b));
+    if (!b || (b.status === 'expired' && b.pay_method !== 'zelle')) throw new HttpError(404, 'We couldn’t find that booking.');
+    const view = bookings.publicView(b);
+    if (b.pay_method === 'zelle' && ['hold', 'expired'].includes(b.status)) view.zelle = zelle.publicInfo();
+    res.json(200, view);
   });
 
   r.post('/api/bookings/:token/release', (req, res) => {
     const b = bookings.byToken(req.params.token);
     if (b && b.status === 'hold') bookings.releaseHold(b.id);
     res.json(200, { ok: true });
+  });
+
+  r.post('/api/bookings/:token/zelle-sent', (req, res) => {
+    const b = bookings.byToken(req.params.token);
+    if (!b) throw new HttpError(404, 'We couldn\u2019t find that booking.');
+    zelle.clientSent(b, 'deposit');
+    res.json(200, bookings.publicView(bookings.byToken(req.params.token)));
   });
 
   r.post('/api/bookings/:token/prep', (req, res) => {
@@ -148,7 +174,14 @@ function build() {
     const pkg = db.get('SELECT name FROM packages WHERE id = ?', [b.package_id]);
     res.json(200, { businessName: config.businessName, name: b.client_name, package: pkg.name, when: require('./mail').when(b),
       locked: b.locked, balanceCents: b.locked ? b.price_cents - b.deposit_cents : 0, canPayOnline: payments.enabled() || payments.devMode(),
+      zelle: b.locked ? zelle.publicInfo() : null, ref: b.locked && zelle.enabled() ? zelle.refFor(b) : null, zelleSent: !!b.balance_zelle_sent_at,
       photos: galleries.list(b.id) });
+  });
+  r.post('/api/gallery/:token/zelle-sent', (req, res) => {
+    const b = galleries.openGallery(req.params.token);
+    if (!b.locked) return res.json(200, { paid: true });
+    zelle.clientSent(b, 'balance');
+    res.json(200, { sent: true });
   });
   // Pay the balance from the gallery (Stripe). Same Idempotency-Key, same checkout: a double tap never pays twice.
   r.post('/api/gallery/:token/pay', async (req, res) => {
@@ -178,6 +211,21 @@ function build() {
     const p = db.get('SELECT * FROM photos WHERE id = ? AND booking_id = ? AND deleted_at IS NULL', [Number(req.params.photo), b.id]);
     if (!p) throw new HttpError(404, 'Not found.');
     return galleries.sendPhoto(res, p, req.params.size, b.locked);
+  });
+
+  /* ---------- the photographer's one-tap Confirm link (from the Zelle email; signed, no login) ---------- */
+  r.get('/api/confirm/:code', (req, res) => { const { b, what } = zelle.readCode(req.params.code); res.json(200, zelle.describe(b, what)); });
+  r.post('/api/confirm/:code', (req, res) => {
+    const { b, what } = zelle.readCode(req.params.code);
+    if (what === 'deposit' && b.status === 'cancelled') throw new HttpError(409, 'This booking was cancelled, so there\u2019s nothing to confirm.');
+    const before = b.status;
+    const after = bookings.confirmZelle(b, what);
+    res.json(200, Object.assign(zelle.describe(after, what), { needsRefund: after.status === 'needs_refund', was: before }));
+  });
+  r.post('/api/confirm/:code/undo', (req, res) => {
+    const { b, what } = zelle.readCode(req.params.code);
+    const after = bookings.undo(b.id, what === 'deposit' ? 'zelle' : 'balance', b.status);
+    res.json(200, zelle.describe(after, what));
   });
 
   /* ---------- admin ---------- */
@@ -213,16 +261,44 @@ function build() {
   r.delete('/api/admin/site/background/:key', admin((req, res) => res.json(200, { background: sitemedia.removeBackground(req.params.key) })));
   r.post('/api/admin/site/background/:key/first', admin((req, res) => res.json(200, { background: sitemedia.firstBackground(req.params.key) })));
   r.put('/api/admin/site/background/:key/frame', admin((req, res) => res.json(200, { background: sitemedia.frameBackground(req.params.key, req.body) })));
+  r.get('/api/admin/packages/:id/portfolio', admin((req, res) => res.json(200, { photos: sitemedia.portfolio(Number(req.params.id)), max: sitemedia.MAX_PORTFOLIO })));
+  r.put('/api/admin/packages/:id/portfolio', admin(async (req, res) => res.json(200, { photos: await sitemedia.addPortfolio(Number(req.params.id), req) })), { stream: true });
+  r.delete('/api/admin/portfolio/:id', admin((req, res) => res.json(200, { photos: sitemedia.removePortfolio(Number(req.params.id)) })));
+  r.post('/api/admin/portfolio/:id/first', admin((req, res) => res.json(200, { photos: sitemedia.firstPortfolio(Number(req.params.id)) })));
   r.put('/api/admin/packages/:id/image/frame', admin((req, res) => res.json(200, { image: sitemedia.framePackageImage(Number(req.params.id), req.body) })));
   r.put('/api/admin/packages/:id/image', admin(async (req, res) => res.json(200, { image: await sitemedia.setPackageImage(Number(req.params.id), req) })), { stream: true });
   r.delete('/api/admin/packages/:id/image', admin((req, res) => { sitemedia.removePackageImage(Number(req.params.id)); res.json(200, { ok: true }); }));
+
+  // Payments: Zelle details (and whether card is set up).
+  r.get('/api/admin/payments', admin((req, res) => res.json(200, { methods: methods(), stripe: payments.enabled(), zelle: zelleAdmin() })));
+  r.put('/api/admin/payments', admin((req, res) => { zelle.saveSettings(req.body.zelle || {}); res.json(200, { methods: methods(), stripe: payments.enabled(), zelle: zelleAdmin() }); }));
+  r.put('/api/admin/payments/zelle-qr', admin(async (req, res) => { await zelle.setQr(req); res.json(200, { zelle: zelleAdmin() }); }), { stream: true });
+  r.delete('/api/admin/payments/zelle-qr', admin((req, res) => { zelle.removeQr(); res.json(200, { zelle: zelleAdmin() }); }));
+  r.post('/api/admin/bookings/:id/zelle-received', admin((req, res) => {
+    const b = bookings.byId(Number(req.params.id));
+    if (!b) throw new HttpError(404, 'No such booking.');
+    res.json(200, { booking: bookings.confirmZelle(b, 'deposit') });
+  }));
+
+  // Email: is it set up, and send a test to the photographer's own address.
+  r.get('/api/admin/email', admin((req, res) => res.json(200, require('./mail').status())));
+  r.post('/api/admin/email/test', admin(async (req, res) => {
+    const mail = require('./mail');
+    if (!config.adminEmail) throw new HttpError(400, 'Set ADMIN_EMAIL in the server\u2019s .env first: the test goes there.');
+    const id = mail.queueNote({ kind: 'test', to: config.adminEmail, subject: `Test email from ${config.businessName}`,
+      body: `This is a test from your booking site (${config.baseUrl}).\n\nIf you\u2019re reading this, clients will get their confirmations, reminders and gallery links.` });
+    await mail.processOutbox();
+    const row = db.get('SELECT status, last_error FROM outbox WHERE id = ?', [id]);
+    if (row.status === 'sent') return res.json(200, { sent: true, to: config.adminEmail, viaResend: !!config.resendApiKey });
+    throw new HttpError(502, `It didn\u2019t send: ${row.last_error || 'unknown error'}. It will retry on its own.`);
+  }));
 
   // Clients.
   r.get('/api/admin/clients', admin((req, res) => res.json(200, { clients: clients.list() })));
   r.put('/api/admin/clients/notes', admin((req, res) => { clients.saveNotes(req.body.email, req.body.notes); res.json(200, { ok: true }); }));
 
   r.get('/api/admin/settings', admin((req, res) => {
-    res.json(200, { availability: db.setting('availability'), terms: db.setting('terms'), packages: db.all('SELECT * FROM packages ORDER BY sort, id').map(publicPackage) });
+    res.json(200, { availability: db.setting('availability'), terms: db.setting('terms'), packages: db.all('SELECT *, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count FROM packages ORDER BY sort, id').map(publicPackage) });
   }));
   r.put('/api/admin/settings', admin((req, res) => {
     if (req.body.availability) db.saveSetting('availability', cleanAvailability(req.body.availability));
@@ -237,7 +313,7 @@ function build() {
       throw new HttpError(400, 'Send every package once, in the new order.');
     }
     db.tx(() => ids.forEach((id, i) => db.run('UPDATE packages SET sort = ? WHERE id = ?', [i + 1, id])));
-    res.json(200, { packages: db.all('SELECT * FROM packages ORDER BY sort, id').map(publicPackage) });
+    res.json(200, { packages: db.all('SELECT *, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count FROM packages ORDER BY sort, id').map(publicPackage) });
   }));
   r.post('/api/admin/packages', admin((req, res) => {
     const p = cleanPackage(req.body);
@@ -260,6 +336,11 @@ function build() {
   return r;
 }
 
+function zelleAdmin() {
+  const z = zelle.settings();
+  return { enabled: z.enabled, recipient: z.recipient, name: z.name, holdHours: z.holdHours, qr: z.qr ? { url: '/media/' + z.qr.web } : null };
+}
+
 /** Holds the time, then starts Stripe checkout. Returns { status, body } and remembers it under the request key. */
 async function placeBooking(body, key) {
   const pkg = activePackage(body.package);
@@ -271,11 +352,20 @@ async function placeBooking(body, key) {
   if (name.length < 2) return { status: 400, body: { error: 'Add your name.', field: 'name' } };
   if (!EMAIL_RE.test(email)) return { status: 400, body: { error: 'Check your email address.', field: 'email' } };
   if (body.agree !== true) return { status: 400, body: { error: 'Please agree to the booking terms.', field: 'agree' } };
+  const can = methods();
+  const method = body.method === 'zelle' || body.method === 'card' ? body.method : can.card ? 'card' : 'zelle';
+  if (!can[method]) return { status: 503, body: { error: can.card || can.zelle ? 'That way of paying isn\u2019t available. Pick the other one.' : 'Online booking isn\u2019t open yet. Please email to book.' } };
 
   let hold;
-  try { hold = bookings.createHold({ pkg, slotKey: String(body.slot || ''), name, email, phone, notes }); } catch (e) {
+  try { hold = bookings.createHold({ pkg, slotKey: String(body.slot || ''), name, email, phone, notes, method }); } catch (e) {
     if (e instanceof HttpError) return { status: e.status, body: Object.assign({ error: e.message }, e.extra) };
     throw e;
+  }
+  // Zelle: no checkout. The client goes to their booking page, which shows who to pay and the memo reference.
+  if (method === 'zelle') {
+    const out = { status: 200, body: { token: hold.token, checkoutUrl: `/booked?b=${hold.token}`, holdExpiresAt: hold.hold_expires_at, method } };
+    bookings.remember('book:' + key, out.status, out.body);
+    return out;
   }
   let checkout;
   try { checkout = await payments.startCheckout(hold, pkg, key); } catch (e) {

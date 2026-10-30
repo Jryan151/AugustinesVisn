@@ -15,12 +15,14 @@
   // reads over any photo, and "Tap to see picture" clears the text and the blur so the photo shows on its own.
   function card(p) {
     const peek = p.image ? `<button type="button" class="peek" aria-pressed="false"><span class="peek-label">Tap to see picture</span><span class="sr-only"> for ${esc(p.name)}</span></button>` : '';
+    // Over the clear photo: a see-through button to this package's portfolio (only when it has shots).
+    const more = p.image && p.portfolio_count ? `<a class="see-portfolio" href="/portfolio/${encodeURIComponent(p.slug)}">See portfolio →</a>` : '';
     return `<article class="pkg glass${p.image ? ' has-img' : ''}">${photo(p.image)}
       <h3>${esc(p.name)}</h3>
       <div class="price">${money(p.price_cents)}</div>
       <div class="facts num"><span>${p.minutes} min</span><span>${p.photos} edited photos</span><span>Ready in ${p.turnaround_days} days</span></div>
       <p class="muted">${esc(p.summary)}</p>
-      <div class="pkg-foot"><a class="go" href="/book?p=${encodeURIComponent(p.slug)}">Book ${esc(p.name)} →</a>${peek}</div>
+      <div class="pkg-foot"><a class="go" href="/book?p=${encodeURIComponent(p.slug)}">Book ${esc(p.name)} →</a>${peek}</div>${more}
     </article>`;
   }
 
@@ -31,6 +33,9 @@
     const on = b.closest('.pkg').classList.toggle('peeking');
     b.setAttribute('aria-pressed', String(on));
     b.querySelector('.peek-label').textContent = on ? 'Tap to go back' : 'Tap to see picture';
+    // Keyboard users land on the portfolio button when it appears.
+    const more = b.closest('.pkg').querySelector('.see-portfolio');
+    if (on && more && e.detail === 0) more.focus();
   });
 
   // The bar (with its Book button) shows once the name has scrolled out of view, so the first screen stays clean.

@@ -55,6 +55,25 @@ function compose(kind, b, pkg) {
       subject: `Tomorrow: your ${pkg.name} session`,
       body: `Hi ${first(b.client_name)},\n\nSee you ${when(b)}.${prepLocation(b) ? `\nWhere: ${prepLocation(b)}` : ''}\n\nI’ll check the weather in the morning and message you if anything changes.${sign}`,
     };
+    case 'zelle_deposit': {
+      const z = require('./zelle').publicInfo() || { recipient: '', name: '' };
+      const until = new Date(b.hold_expires_at).toLocaleString('en-US', { timeZone: config.timezone, weekday: 'long', hour: 'numeric', minute: '2-digit' });
+      return {
+        to: b.client_email,
+        subject: `Almost booked: send your ${money(b.deposit_cents)} deposit by Zelle`,
+        body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} session on ${when(b)} is held for you until ${until}.\n\nTo confirm it, send the ${money(b.deposit_cents)} deposit by Zelle (no fees):\n  To: ${z.recipient}${z.name ? ` (${z.name})` : ''}\n  Amount: ${money(b.deposit_cents)}\n  Memo: ${b.ref_code}\n\nThen tap "I've sent it" here, so I know to look for it:\n${statusLink}\n\nYou'll get a confirmation as soon as it's in.${sign}`,
+      };
+    }
+    case 'admin_zelle_deposit': return {
+      to: config.adminEmail,
+      subject: `Check Zelle: ${money(b.deposit_cents)} deposit from ${b.client_name} (${b.ref_code})`,
+      body: `${b.client_name} says they sent the ${money(b.deposit_cents)} deposit by Zelle for ${pkg.name}, ${when(b)}.\nMemo: ${b.ref_code}\n\nCheck your bank app. If it's there, confirm it here (one tap; they're emailed straight after):\n${require('./zelle').confirmUrl(b.id, 'deposit')}\n\nNot there after a day? Reply to ${b.client_email} or release the time in Admin.`,
+    };
+    case 'admin_zelle_balance': return {
+      to: config.adminEmail,
+      subject: `Check Zelle: ${balance} balance from ${b.client_name} (${b.ref_code})`,
+      body: `${b.client_name} says they sent the ${balance} balance by Zelle for ${pkg.name}.\nMemo: ${b.ref_code}\n\nCheck your bank app. If it's there, confirm it here and their photos unlock:\n${require('./zelle').confirmUrl(b.id, 'balance')}`,
+    };
     case 'unlocked': return {
       to: b.client_email,
       subject: `Your photos are ready to download`,
@@ -104,6 +123,28 @@ function queue(kind, booking, { delayMs = 0 } = {}) {
   return true;
 }
 
+/** An email that isn't about one booking (the test email). Queued like the rest, so it's sent and logged the same way. */
+function queueNote({ kind, to, subject, body }) {
+  if (!to) return null;
+  const now = new Date().toISOString();
+  return db.run('INSERT INTO outbox (booking_id, kind, to_addr, subject, body, send_after, created_at) VALUES (NULL,?,?,?,?,?,?)',
+    [kind, to, subject, body, now, now]).lastInsertRowid;
+}
+
+/** For Admin: is email set up, and how's it going (sent today, anything stuck or failed). */
+function status() {
+  const day = new Date(Date.now() - 86400000).toISOString();
+  return {
+    resend: !!config.resendApiKey,
+    from: config.mailFrom || (config.resendApiKey ? `${config.businessName} <onboarding@resend.dev>` : ''),
+    fromIsTestAddress: !config.mailFrom,
+    adminEmail: config.adminEmail,
+    sentToday: db.get("SELECT COUNT(*) n FROM outbox WHERE status = 'sent' AND sent_at > ?", [day]).n,
+    waiting: db.get("SELECT COUNT(*) n FROM outbox WHERE status = 'pending'").n,
+    failed: db.all("SELECT kind, to_addr, subject, last_error, created_at FROM outbox WHERE status = 'failed' OR (status = 'pending' AND attempts > 0) ORDER BY id DESC LIMIT 5"),
+  };
+}
+
 /** Takes a waiting email back out (Undo). True if it hadn't been sent yet. */
 function unqueue(kind, bookingId) {
   return db.run("UPDATE outbox SET status = 'cancelled' WHERE booking_id = ? AND kind = ? AND status = 'pending'", [bookingId, kind]).changes > 0;
@@ -141,4 +182,4 @@ async function processOutbox(now = new Date()) {
   return due.length;
 }
 
-module.exports = { queue, unqueue, processOutbox, compose, when, money, sentInTests };
+module.exports = { queueNote, status, queue, unqueue, processOutbox, compose, when, money, sentInTests };

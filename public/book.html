@@ -10,7 +10,7 @@
   <!--SITE_CSS-->
 </head>
 <body>
-  <!--SITE_BG strong-->
+  <!--SITE_BG see-through-->
   <div id="bg"></div>
 
   <nav class="nav glass" aria-label="Main">
@@ -18,7 +18,7 @@
     <div class="nav-links"><a href="/#packages">Packages</a></div>
   </nav>
 
-  <main class="book">
+  <main class="book book-glass">
     <div class="wrap narrow">
       <h1 class="sr-only">Book a session</h1>
       <ol class="progress" aria-label="Booking steps">
@@ -63,11 +63,17 @@
           <div class="field"><label for="notes">Anything I should know? <span class="hint">(optional)</span></label><textarea id="notes" name="notes" maxlength="1000"></textarea></div>
           <div class="terms" id="terms"></div>
           <label class="check"><input type="checkbox" id="agree" name="agree" required> <span>I agree to the booking terms above.</span></label>
+          <!-- How to pay the deposit: shown only when there's more than one way. -->
+          <fieldset class="pay-methods" id="pay-methods" hidden>
+            <legend>Pay the deposit by</legend>
+            <label class="pay-method"><input type="radio" name="method" value="zelle"> <span><b>Zelle</b><small>No fees. Send it from your bank app; your time is held while it arrives.</small></span></label>
+            <label class="pay-method"><input type="radio" name="method" value="card"> <span><b>Card</b><small>Pay now on Stripe’s secure page.</small></span></label>
+          </fieldset>
           <div class="step-actions">
             <button class="btn btn-text" type="button" data-back="2">← Times</button>
             <button class="btn btn-primary" type="submit" id="pay">Pay deposit</button>
           </div>
-          <p class="muted fine">You’ll pay on Stripe’s secure page. Your time is held for 30 minutes while you do.</p>
+          <p class="muted fine" id="pay-note"></p>
         </form>
       </section>
     </div>

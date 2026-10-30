@@ -18,6 +18,7 @@
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const COLUMNS = [
     ['needs_refund', 'Needs attention'],
+    ['hold', 'Waiting for Zelle'],
     ['booked', 'Booked'],
     ['prepped', 'Prepped'],
     ['shot', 'Shot'],
@@ -46,10 +47,10 @@
   }
 
   /* ---------- tabs ---------- */
-  const loaders = { pipeline: () => loadBoard(), clients: () => loadClients(), site: () => loadSite() };
+  const loaders = { pipeline: () => loadBoard(), clients: () => loadClients(), site: () => loadSite(), payments: () => loadPayments() };
   document.querySelectorAll('[data-tab]').forEach((t) => t.addEventListener('click', () => {
     document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
-    for (const name of ['pipeline', 'clients', 'site', 'settings', 'packages']) $('tab-' + name).hidden = name !== t.dataset.tab;
+    for (const name of ['pipeline', 'clients', 'site', 'settings', 'packages', 'payments']) $('tab-' + name).hidden = name !== t.dataset.tab;
     if (loaders[t.dataset.tab]) loaders[t.dataset.tab]();
   }));
   addEventListener('focus', () => { if (!$('app').hidden && !$('tab-pipeline').hidden && !$('photos').open) loadBoard(); });
@@ -85,7 +86,7 @@
     $('board').innerHTML = COLUMNS.map(([status, title]) => {
       let items = bookings.filter((b) => b.status === status);
       if (status === 'delivered') items = items.filter((b) => new Date(b.delivered_at) > recent).reverse();
-      if (status === 'needs_refund' && !items.length) return '';
+      if ((status === 'needs_refund' || status === 'hold') && !items.length) return '';
       return `<div class="col"><h3><span>${title}</span><span class="num">${items.length}</span></h3>
         ${items.map(card).join('') || '<p class="muted">Nothing here.</p>'}</div>`;
     }).join('');
@@ -99,12 +100,13 @@
     if (b.status === 'shot') actions = btn('status', b, 'Start editing', 'editing') + photos;
     if (b.status === 'editing') actions = photos;
     if (b.status === 'delivered') actions = photos;
+    if (b.status === 'hold') actions = btn('zelle', b, `${money(b.deposit_cents)} received`) + btn('cancel', b, 'Release time');
     if (b.status === 'needs_refund') actions = '<p class="meta">Paid after the time was taken. Refund the deposit in Stripe, then email them a new date.</p>';
     return `<article class="card${b.status === 'needs_refund' ? ' attention' : ''}" data-id="${b.id}">
       <h4>${esc(b.client_name)}</h4>
       <div class="meta">${esc(b.package_name)} · ${esc(b.when)}</div>
       <div class="meta num">Deposit ${money(b.deposit_cents)} · balance ${money(b.price_cents - b.deposit_cents)}</div>
-      ${balanceLine(b)}
+      ${b.status === 'hold' ? zelleLine(b) : balanceLine(b)}
       <details><summary>Details${b.prep ? ' and shoot plan' : ''}</summary><dl>
         <dt>Email</dt><dd><a href="mailto:${esc(b.client_email)}">${esc(b.client_email)}</a></dd>
         ${b.client_phone ? `<dt>Phone</dt><dd><a href="tel:${esc(b.client_phone)}">${esc(b.client_phone)}</a></dd>` : ''}
@@ -113,12 +115,18 @@
       <div class="actions">${actions}</div>
     </article>`;
   }
+  // A Zelle deposit not confirmed yet: the memo to look for, whether they say it's sent, and when the hold runs out.
+  function zelleLine(b) {
+    const until = new Date(b.hold_expires_at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    return `<div class="balance"><span class="badge${b.zelle_sent_at ? ' upcoming' : ''}">${b.zelle_sent_at ? 'Says it’s sent' : 'Not sent yet'}</span>
+      <span class="meta num">Memo ${esc(b.ref_code || '')} · held until ${esc(until)}</span></div>`;
+  }
   // The balance unlocks the client's clean photos. Shown once the session is paid for (not for holds or refunds).
   function balanceLine(b) {
     const due = b.price_cents - b.deposit_cents;
     if (due <= 0 || !['booked', 'prepped', 'shot', 'editing', 'delivered'].includes(b.status)) return '';
     if (b.balance_paid_at) return `<div class="balance"><span class="badge delivered">Balance paid${b.balance_paid_by === 'online' ? ' online' : ''}</span></div>`;
-    return `<div class="balance"><span class="badge">Balance due</span>${btn('balance', b, 'Mark paid')}</div>`;
+    return `<div class="balance"><span class="badge${b.balance_zelle_sent_at ? ' upcoming' : ''}">${b.balance_zelle_sent_at ? `Says Zelle sent · ${esc(b.ref_code || '')}` : 'Balance due'}</span>${btn('balance', b, 'Mark paid')}</div>`;
   }
   const btn = (act, b, label, to) => `<button type="button" class="btn btn-small" data-act="${act}" data-id="${b.id}"${to ? ` data-to="${to}"` : ''}>${label}</button>`;
 
@@ -135,6 +143,10 @@
         await api(`/api/admin/bookings/${id}/status`, { method: 'POST', body: { status: t.dataset.to } });
         await loadBoard();
         toast(`${b.client_name}: moved to ${t.dataset.to}.`, { actionLabel: 'Undo', onAction: () => undoStatus(id, from) });
+      } else if (t.dataset.act === 'zelle') {
+        await api(`/api/admin/bookings/${id}/zelle-received`, { method: 'POST', body: {} });
+        await loadBoard();
+        toast(`${b.client_name} is booked. Their confirmation goes out in 10 seconds.`, { ms: 9000, actionLabel: 'Undo', onAction: () => undo(id, 'zelle', 'booked') });
       } else if (t.dataset.act === 'balance') {
         await api(`/api/admin/bookings/${id}/balance-paid`, { method: 'POST', body: {} });
         await loadBoard();
@@ -143,7 +155,8 @@
       } else if (t.dataset.act === 'cancel') {
         const out = await api(`/api/admin/bookings/${id}/cancel`, { method: 'POST', body: {} });
         await loadBoard();
-        toast(`${b.client_name}’s session cancelled. They’ll be emailed in 10 seconds.`, { ms: 9000, actionLabel: 'Undo', onAction: () => undo(id, 'cancel', out.previous) });
+        toast(b.status === 'hold' ? `${b.client_name}’s held time is released.` : `${b.client_name}’s session cancelled. They’ll be emailed in 10 seconds.`,
+          { ms: 9000, actionLabel: 'Undo', onAction: () => undo(id, 'cancel', out.previous) });
       }
     } catch (err) { handle(err); t.removeAttribute('aria-busy'); }
   });
@@ -155,7 +168,7 @@
     try {
       await api(`/api/admin/bookings/${id}/undo`, { method: 'POST', body: { action, previous } });
       await loadBoard(); if (current && current.id === id) refreshCurrent();
-      toast(action === 'balance' ? 'Undone. The balance is due again.' : 'Undone. No email was sent.');
+      toast(action === 'balance' ? 'Undone. The balance is due again.' : action === 'zelle' ? 'Undone. Back to waiting for their Zelle.' : 'Undone. No email was sent.');
     } catch (e) { handle(e); }
   }
 
@@ -414,6 +427,7 @@
   function renderPackages() {
     $('package-forms').innerHTML = packages.map(packageForm).join('');
     applyFrames($('package-forms'), packages.filter((p) => p.image).map((p) => p.image));
+    loadPortfolios();
   }
   function packageForm(p) {
     const id = p.id || 'new';
@@ -449,7 +463,34 @@
         <label class="check wide"><input type="checkbox" name="active"${p.active === 0 ? '' : ' checked'}> Open for booking</label>
       </div>
       <button class="btn btn-primary" type="submit">Save</button>
+      ${p.id ? `<section class="portfolio-admin" aria-labelledby="pf-title-${p.id}">
+        <h3 id="pf-title-${p.id}">Portfolio <span class="hint num" data-pf-count="${p.id}">${p.portfolio_count || 0} photos</span></h3>
+        <p class="muted">Example shots for this package. Visitors reach them from “See portfolio” on the package’s photo.${p.image ? '' : ' (Add a card photo too: the button sits on it.)'}</p>
+        <div class="thumbs" data-pf-grid="${p.id}"></div>
+        <div class="upload-row">
+          <label class="btn btn-small" for="pf-${p.id}">Add portfolio photos</label>
+          <input class="sr-only" id="pf-${p.id}" type="file" accept="image/jpeg,image/png,image/webp" multiple data-pf-input="${p.id}">
+          ${p.portfolio_count ? `<a class="btn btn-small btn-text" href="/portfolio/${esc(p.slug)}" target="_blank" rel="noopener">View page</a>` : ''}
+          <span class="muted" data-pf-status="${p.id}" role="status"></span>
+        </div>
+      </section>` : ''}
     </form>`;
+  }
+
+  /* ---------- a package's portfolio ---------- */
+  function renderPortfolio(id, photos) {
+    const grid = document.querySelector(`[data-pf-grid="${id}"]`); if (!grid) return;
+    grid.innerHTML = photos.map((ph, i) => `<figure class="thumb">
+        <img src="${esc(ph.thumb)}" width="${ph.width}" height="${ph.height}" alt="Portfolio photo ${i + 1}" loading="lazy">
+        ${i ? `<button type="button" class="thumb-first" data-pf-first="${ph.id}" data-pkg="${id}" aria-label="Show photo ${i + 1} first">First</button>` : ''}
+        <button type="button" class="thumb-x" data-pf-remove="${ph.id}" data-pkg="${id}" aria-label="Remove portfolio photo ${i + 1}">×</button>
+      </figure>`).join('');
+    const count = document.querySelector(`[data-pf-count="${id}"]`);
+    if (count) count.textContent = `${photos.length} photo${photos.length === 1 ? '' : 's'}`;
+    const p = packages.find((x) => x.id === Number(id)); if (p) p.portfolio_count = photos.length;
+  }
+  function loadPortfolios() {
+    for (const p of packages) if (p.id && p.portfolio_count) api(`/api/admin/packages/${p.id}/portfolio`).then((r) => renderPortfolio(p.id, r.photos)).catch(handle);
   }
   $('package-forms').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -473,6 +514,21 @@
     e.target.form.querySelector('h2').textContent = e.target.value.trim() || 'New package';
   });
   $('package-forms').addEventListener('change', async (e) => {
+    const pf = e.target.closest('[data-pf-input]');
+    if (pf) {
+      const id = pf.dataset.pfInput; const files = [...pf.files]; pf.value = '';
+      const status = document.querySelector(`[data-pf-status="${id}"]`);
+      const problems = [];
+      for (let i = 0; i < files.length; i++) {
+        const bad = checkFile(files[i]);
+        if (bad) { problems.push(`${files[i].name} (${bad})`); continue; }
+        status.textContent = `Uploading ${i + 1} of ${files.length}…`;
+        try { renderPortfolio(id, (await uploadOne(`/api/admin/packages/${id}/portfolio`, files[i])).photos); }
+        catch (err) { if (err.status === 401) return handle(err); problems.push(`${files[i].name} (${err.message})`); }
+      }
+      status.textContent = problems.length ? `Not uploaded: ${problems.join(', ')}` : 'Done. It’s live on the site.';
+      return;
+    }
     const input = e.target.closest('[data-pkg-image]'); if (!input || !input.files[0]) return;
     const file = input.files[0]; const id = input.dataset.pkgImage;
     const status = document.querySelector(`[data-pkg-status="${id}"]`);
@@ -482,6 +538,18 @@
     catch (err) { if (err.status === 401) return handle(err); status.textContent = err.message; }
   });
   $('package-forms').addEventListener('click', async (e) => {
+    const pfRm = e.target.closest('[data-pf-remove]'); const pfFirst = e.target.closest('[data-pf-first]');
+    if (pfRm || pfFirst) {
+      e.preventDefault();
+      try {
+        if (pfFirst) renderPortfolio(pfFirst.dataset.pkg, (await api(`/api/admin/portfolio/${pfFirst.dataset.pfFirst}/first`, { method: 'POST', body: {} })).photos);
+        else {
+          if (!confirm('Remove this portfolio photo? You’d have to upload it again to bring it back.')) return;
+          renderPortfolio(pfRm.dataset.pkg, (await api(`/api/admin/portfolio/${pfRm.dataset.pfRemove}`, { method: 'DELETE' })).photos);
+        }
+      } catch (err) { handle(err); }
+      return;
+    }
     const mv = e.target.closest('[data-move]');
     if (mv) {
       const before = packages.map((p) => p.id);
@@ -584,6 +652,58 @@
     b.removeAttribute('aria-busy');
   });
   fr.querySelector('[data-close]').addEventListener('click', () => fr.close());
+
+  /* ======================================================================
+     Payments & email
+     ====================================================================== */
+  async function loadPayments() {
+    try {
+      const [p, m] = await Promise.all([api('/api/admin/payments'), api('/api/admin/email')]);
+      renderPayments(p); renderEmail(m);
+    } catch (e) { handle(e); }
+  }
+  function renderPayments(p) {
+    const z = p.zelle;
+    $('z-enabled').checked = z.enabled; $('z-recipient').value = z.recipient; $('z-name').value = z.name; $('z-hold').value = z.holdHours;
+    $('z-qr').innerHTML = z.qr ? `<img src="${esc(z.qr.url)}" alt="Your Zelle QR code"><button type="button" class="btn btn-small btn-text" id="z-qr-remove">Remove QR code</button>` : '<p class="muted">No QR code: clients copy your Zelle details instead.</p>';
+    const rm = $('z-qr-remove'); if (rm) rm.addEventListener('click', async () => { try { renderPayments(Object.assign(p, await api('/api/admin/payments/zelle-qr', { method: 'DELETE' }))); } catch (e) { handle(e); } });
+    $('card-status').innerHTML = p.stripe
+      ? '<span class="badge delivered">Card payments on</span> Clients can pay by card through Stripe.'
+      : '<span class="badge">Card payments off</span> No Stripe key yet, so clients pay by Zelle (or in person).';
+    $('pay-summary').textContent = p.methods.zelle || p.methods.card
+      ? `Clients can book and pay by ${[p.methods.zelle && 'Zelle', p.methods.card && 'card'].filter(Boolean).join(' or ')}.`
+      : 'Booking is closed: turn on Zelle (or add Stripe) so clients can pay the deposit.';
+  }
+  $('zelle-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = { zelle: { enabled: $('z-enabled').checked, recipient: $('z-recipient').value, name: $('z-name').value, holdHours: Number($('z-hold').value) } };
+    try { renderPayments(await api('/api/admin/payments', { method: 'PUT', body })); toast('Saved.'); } catch (err) { handle(err); }
+  });
+  $('z-qr-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+    const bad = checkFile(file); if (bad) return toast(`Not uploaded: ${bad}.`, { error: true });
+    try { await uploadOne('/api/admin/payments/zelle-qr', file); loadPayments(); toast('QR code saved.'); } catch (err) { handle(err); }
+  });
+  function renderEmail(m) {
+    const rows = [
+      ['Sending through Resend', m.resend ? 'Yes' : 'Not yet: emails only show in the server log'],
+      ['Sent from', m.from ? m.from + (m.fromIsTestAddress && m.resend ? ' (Resend’s test address: only reaches you)' : '') : '—'],
+      ['Your notices go to', m.adminEmail || 'Not set (ADMIN_EMAIL)'],
+      ['Sent in the last day', String(m.sentToday)],
+      ['Waiting to send', String(m.waiting)],
+    ];
+    $('email-status').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
+    $('email-failed').innerHTML = m.failed.length
+      ? '<h3>Problems</h3>' + m.failed.map((f) => `<p class="error-box">${esc(f.subject)} → ${esc(f.to_addr)}: ${esc(f.last_error || 'retrying')}</p>`).join('')
+      : '';
+  }
+  $('email-test').addEventListener('click', async (e) => {
+    const b = e.currentTarget; if (b.getAttribute('aria-busy') === 'true') return;
+    b.setAttribute('aria-busy', 'true');
+    try { const r = await api('/api/admin/email/test', { method: 'POST', body: {} }); toast(r.viaResend ? `Sent to ${r.to}. Check your inbox (and spam).` : 'Logged on the server: add RESEND_API_KEY to really send.'); loadPayments(); }
+    catch (err) { handle(err); }
+    b.removeAttribute('aria-busy');
+  });
 
   boot();
 })();

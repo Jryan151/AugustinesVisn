@@ -22,13 +22,15 @@ const REWRITES = [
   [/^\/admin\/?$/, '/admin.html'],
   [/^\/prep\/[A-Za-z0-9_-]+\/?$/, '/prep.html'],
   [/^\/gallery\/[A-Za-z0-9_-]+\/?$/, '/gallery.html'],
+  [/^\/portfolio\/[a-z0-9-]+\/?$/, '/portfolio.html'],
+  [/^\/confirm\/[A-Za-z0-9_.-]+\/?$/, '/confirm.html'],
 ];
 
 // Pages that get the site background (Admin › Site). The marker in each is <!--SITE_BG--> or, for pages with forms
 // (a heavier veil over the photo), <!--SITE_BG strong-->.
 // Every page goes through page(), so it also gets the current build stamp on its scripts and styles.
 const PAGES = { '/': 'index.html', '/index.html': 'index.html', '/book.html': 'book.html', '/booked.html': 'booked.html',
-  '/prep.html': 'prep.html', '/admin.html': 'admin.html', '/gallery.html': 'gallery.html' };
+  '/prep.html': 'prep.html', '/admin.html': 'admin.html', '/gallery.html': 'gallery.html', '/portfolio.html': 'portfolio.html', '/confirm.html': 'confirm.html' };
 
 /* A stamp made from the scripts' and styles' contents. Pages ask for "/styles.css?v=<stamp>", which browsers keep for a
    year; a new version has a new stamp, so after an update everyone gets the new files at once, never a stale mix. */
@@ -43,6 +45,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 function page(file, res) {
   const html = fs.readFileSync(path.join(config.publicDir, file), 'utf8')
     .replace('<!--SITE_BG strong-->', () => sitemedia.backgroundMarkup(true))
+    .replace('<!--SITE_BG see-through-->', () => sitemedia.backgroundMarkup(false).replace('class="bg"', 'class="bg see-through"'))
     .replace('<!--SITE_BG-->', () => sitemedia.backgroundMarkup(false))
     .replace(/(src|href)="\/([a-z0-9-]+\.(?:js|css))"/g, `$1="/$2?v=${BUILD}"`)
     .replace('<!--SITE_CSS-->', () => `<link rel="stylesheet" href="/site.css?v=${sitemedia.cssStamp()}">`)

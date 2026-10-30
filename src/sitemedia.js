@@ -124,6 +124,39 @@ function removePackageImage(id) {
   if (old) media.removeFiles(config.mediaDir, old);
 }
 
+/* ---------- package portfolios: example shots per package (Admin › Packages), shown on /portfolio/<slug> ---------- */
+const MAX_PORTFOLIO = 60;
+
+function portfolio(packageId) {
+  return db.all('SELECT id, file_json FROM portfolio WHERE package_id = ? ORDER BY sort, id', [packageId])
+    .map((r) => Object.assign(view(JSON.parse(r.file_json)), { id: r.id }));
+}
+async function addPortfolio(packageId, req) {
+  if (!db.get('SELECT 1 FROM packages WHERE id = ?', [packageId])) { req.resume(); throw new HttpError(404, 'No such package.'); }
+  if (db.get('SELECT COUNT(*) n FROM portfolio WHERE package_id = ?', [packageId]).n >= MAX_PORTFOLIO) {
+    req.resume(); throw new HttpError(400, `Up to ${MAX_PORTFOLIO} portfolio photos per package. Remove one first.`);
+  }
+  const f = await media.storeUpload(req, config.mediaDir);
+  const last = db.get('SELECT COALESCE(MAX(sort), 0) n FROM portfolio WHERE package_id = ?', [packageId]).n;
+  db.run('INSERT INTO portfolio (package_id, file_json, sort, created_at) VALUES (?,?,?,?)', [packageId, JSON.stringify(f), last + 1, db.nowIso()]);
+  return portfolio(packageId);
+}
+function removePortfolio(id) {
+  const r = db.get('SELECT * FROM portfolio WHERE id = ?', [id]);
+  if (!r) throw new HttpError(404, 'That photo is already gone.');
+  db.run('DELETE FROM portfolio WHERE id = ?', [id]);
+  media.removeFiles(config.mediaDir, JSON.parse(r.file_json));
+  return portfolio(r.package_id);
+}
+/** Moves a portfolio photo to the front: the first one is what visitors see first. */
+function firstPortfolio(id) {
+  const r = db.get('SELECT package_id FROM portfolio WHERE id = ?', [id]);
+  if (!r) throw new HttpError(404, 'No such photo.');
+  const first = db.get('SELECT COALESCE(MIN(sort), 0) n FROM portfolio WHERE package_id = ?', [r.package_id]).n;
+  db.run('UPDATE portfolio SET sort = ? WHERE id = ?', [first - 1, id]);
+  return portfolio(r.package_id);
+}
+
 /* ---------- serving /media/<name> ---------- */
 function serveMedia(req, res) {
   const m = /^\/media\/([A-Za-z0-9_-]+(?:-web|-thumb)?\.(jpg|png|webp))$/.exec(new URL(req.url, 'http://local').pathname);
@@ -138,4 +171,4 @@ function serveMedia(req, res) {
   return true;
 }
 
-module.exports = { frameBackground, framePackageImage, siteCss, cssStamp, addBackground, removeBackground, firstBackground, backgroundPhotos, backgroundMarkup, setPackageImage, removePackageImage, packageImage, view, serveMedia, MAX_BG };
+module.exports = { portfolio, addPortfolio, removePortfolio, firstPortfolio, MAX_PORTFOLIO, frameBackground, framePackageImage, siteCss, cssStamp, addBackground, removeBackground, firstBackground, backgroundPhotos, backgroundMarkup, setPackageImage, removePackageImage, packageImage, view, serveMedia, MAX_BG };

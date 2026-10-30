@@ -113,5 +113,36 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => startBackground());
   else startBackground();
 
-  window.AV = { api, money, time, day, esc, toast, cached, slow, transition, startBackground, setTimezone, reduceMotion };
+  /* ---------- paying by Zelle ----------
+     The same panel on the booking page (deposit) and in the gallery (balance): who to pay, the exact amount and the
+     memo reference, each with a copy button, the QR code if there is one, and "I've sent it". */
+  function zellePanel({ zelle, amountCents, ref, sent, what }) {
+    const row = (label, value, copy) => `<div class="z-row"><dt>${label}</dt><dd><span class="num">${esc(value)}</span>${copy ? `<button type="button" class="btn btn-small z-copy" data-copy="${esc(copy)}">Copy</button>` : ''}</dd></div>`;
+    return `<div class="zelle">
+      <div class="z-main">
+        <ol class="z-steps">
+          <li>Open your bank app and choose <b>Zelle</b>.</li>
+          <li>Send <b class="num">${money(amountCents)}</b> to the details below${zelle.qr ? ', or scan the code' : ''}.</li>
+          <li>Put <b>${esc(ref)}</b> in the memo, so it’s matched to you.</li>
+        </ol>
+        <dl class="z-details">
+          ${row('To', zelle.recipient, zelle.recipient)}
+          ${zelle.name ? row('Name', zelle.name) : ''}
+          ${row('Amount', money(amountCents), (amountCents / 100).toFixed(2))}
+          ${row('Memo', ref, ref)}
+        </dl>
+      </div>
+      ${zelle.qr ? `<img class="z-qr" src="${esc(zelle.qr.url)}" width="${zelle.qr.width}" height="${zelle.qr.height}" alt="Zelle QR code: scan it in your bank app">` : ''}
+      <div class="z-foot">${sent
+        ? `<p class="z-sent">Thanks, we’re checking for it. You’ll get an email as soon as it’s confirmed${what === 'balance' ? ' and your photos unlock' : ''}.</p>`
+        : '<button type="button" class="btn btn-primary" data-zelle-sent>I’ve sent it</button>'}</div>
+    </div>`;
+  }
+  // Copy buttons anywhere on the page.
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-copy]'); if (!b) return;
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast('Copied.'); } catch (err) { toast('Couldn’t copy. Select it and copy instead.', { error: true }); }
+  });
+
+  window.AV = { zellePanel, api, money, time, day, esc, toast, cached, slow, transition, startBackground, setTimezone, reduceMotion };
 })();

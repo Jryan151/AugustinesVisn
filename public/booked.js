@@ -36,11 +36,31 @@
         box.innerHTML = '<h1 class="display">That time was taken.</h1><p>Your payment arrived after the time had gone to someone else. You won’t be charged for it: I’ll refund your deposit and email you to find another date.</p>';
         break;
       case 'hold':
+        // Zelle: show where to send the deposit. (Card: Stripe confirms on its own, so wait for it.)
+        if (b.payMethod === 'zelle' && b.zelle) {
+          const until = new Date(b.holdExpiresAt).toLocaleString('en-US', { weekday: 'long', hour: 'numeric', minute: '2-digit' });
+          box.innerHTML = `<h1 class="display">Almost booked.</h1>
+            <p>Your ${esc(b.package.name)} session on <b>${esc(b.when)}</b> is held for you until <b>${esc(until)}</b>. Send the deposit by Zelle to confirm it. No fees.</p>
+            ${AV.zellePanel({ zelle: b.zelle, amountCents: b.depositCents, ref: b.ref, sent: b.zelleSent, what: 'deposit' })}
+            <p class="muted fine">The same details are in your email.</p>`;
+          const sent = box.querySelector('[data-zelle-sent]');
+          if (sent) sent.addEventListener('click', async () => {
+            if (sent.getAttribute('aria-busy') === 'true') return;
+            sent.setAttribute('aria-busy', 'true');
+            try { render(await AV.api(`/api/bookings/${encodeURIComponent(token)}/zelle-sent`, { method: 'POST', body: {} })); }
+            catch (e) { sent.removeAttribute('aria-busy'); AV.toast(e.message, { error: true }); }
+          });
+          // Checks back now and then, so the page turns into "You're booked" once it's confirmed.
+          clearTimeout(window.__avPoll); window.__avPoll = setTimeout(load, 30000);
+          return;
+        }
         if (++tries < 30) { setTimeout(load, 2000); return; }
         box.innerHTML = '<h1 class="display">Still waiting on the payment.</h1><p class="muted">If you paid, your confirmation email will arrive shortly. If you didn’t finish paying, your time will be released in a few minutes.</p><a class="btn" href="/book">Back to booking</a>';
         break;
       default:
-        box.innerHTML = '<h1 class="display">This booking has expired.</h1><p class="muted">The payment wasn’t finished in time. Nothing was charged.</p><a class="btn btn-primary" href="/book">Pick a time</a>';
+        box.innerHTML = b.payMethod === 'zelle'
+          ? '<h1 class="display">This hold has run out.</h1><p class="muted">The deposit didn’t arrive in time, so the time was released. If you did send it, reply to your booking email and it will be sorted out.</p><a class="btn btn-primary" href="/book">Pick a time</a>'
+          : '<h1 class="display">This booking has expired.</h1><p class="muted">The payment wasn’t finished in time. Nothing was charged.</p><a class="btn btn-primary" href="/book">Pick a time</a>';
     }
   }
 

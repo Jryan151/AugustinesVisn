@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Portfolio · {{BRAND}}</title>
+  <meta name="theme-color" content="#08080b">
+  <link rel="preload" href="/fonts/InstrumentSerif-Regular.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <!--SITE_CSS-->
+</head>
+<body>
+  <!--SITE_BG strong-->
+  <nav class="nav glass" aria-label="Main">
+    <a class="brand" href="/">{{BRAND}}</a>
+    <div class="nav-links"><a href="/#packages">Packages</a><a class="btn btn-primary btn-small" id="nav-book" href="/book">Book</a></div>
+  </nav>
+  <main class="portfolio">
+    <div class="wrap">
+      <header class="portfolio-head">
+        <div>
+          <p class="eyebrow">Portfolio</p>
+          <h1 class="display" id="title">&nbsp;</h1>
+          <p class="muted" id="sub"></p>
+        </div>
+        <a class="btn btn-primary" id="book" href="/book" hidden></a>
+      </header>
+      <div class="error-box" id="error" role="alert" hidden></div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </main>
+
+  <!-- One photo, large. Swipe, the arrows, or the arrow keys move between them. -->
+  <dialog class="viewer" id="viewer" aria-label="Photo">
+    <img id="viewer-img" alt="">
+    <button type="button" class="viewer-btn viewer-close" data-close aria-label="Close">×</button>
+    <button type="button" class="viewer-btn viewer-prev" data-step="-1" aria-label="Previous photo">‹</button>
+    <button type="button" class="viewer-btn viewer-next" data-step="1" aria-label="Next photo">›</button>
+    <p class="viewer-count num" id="viewer-count"></p>
+  </dialog>
+
+  <script src="/common.js"></script>
+  <script src="/portfolio.js"></script>
+</body>
+</html>

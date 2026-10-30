@@ -16,6 +16,7 @@ const db = require('./db');
 const config = require('./config');
 const mail = require('./mail');
 const availability = require('./availability');
+const zelle = require('./zelle');
 const { HttpError } = require('./http');
 
 const UNDO_MS = 10000; // how long an emailing action waits, so Undo can take it back
@@ -29,18 +30,25 @@ function expireStaleHolds(now = new Date()) {
 }
 
 /** Holds a time for a client while they pay. Throws 409 if the time can't be had any more. */
-function createHold({ pkg, slotKey, name, email, phone, notes }, now = new Date()) {
+/**
+ * Holds a time for a client while they pay. `method` is 'card' (Stripe: held 30 minutes) or 'zelle' (held for the
+ * photographer's Zelle hold time, since each Zelle payment is checked by hand). Throws 409 if the time is gone.
+ */
+function createHold({ pkg, slotKey, name, email, phone, notes, method = 'card' }, now = new Date()) {
   expireStaleHolds(now);
   const slot = availability.findSlot(pkg, slotKey, now);
   if (!slot) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
   const p = availability.parseSlotKey(slotKey);
   const iso = now.toISOString();
+  const holdMs = method === 'zelle' ? zelle.settings().holdHours * 3600000 : config.holdMinutes * 60000;
   try {
     const r = db.run(`INSERT INTO bookings (token, package_id, slot_key, local_date, period, start_at, end_at, status, client_name, client_email,
-        client_phone, notes, price_cents, deposit_cents, hold_expires_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?, 'hold', ?,?,?,?,?,?,?,?,?)`,
+        client_phone, notes, price_cents, deposit_cents, hold_expires_at, pay_method, created_at, updated_at) VALUES (?,?,?,?,?,?,?, 'hold', ?,?,?,?,?,?,?,?,?,?)`,
       [crypto.randomBytes(18).toString('base64url'), pkg.id, slotKey, p.date, p.period, slot.start, slot.end, name, email, phone, notes,
-        pkg.price_cents, pkg.deposit_cents, new Date(now.getTime() + config.holdMinutes * 60000).toISOString(), iso, iso]);
-    return byId(r.lastInsertRowid);
+        pkg.price_cents, pkg.deposit_cents, new Date(now.getTime() + holdMs).toISOString(), method, iso, iso]);
+    const b = byId(r.lastInsertRowid);
+    if (method === 'zelle') { zelle.refFor(b); mail.queue('zelle_deposit', byId(b.id)); }
+    return byId(b.id);
   } catch (e) {
     if (isUniqueClash(e)) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
     throw e;
@@ -60,7 +68,7 @@ function attachCheckout(id, sessionId) {
  * The deposit is paid (from Stripe's webhook, or the dev pay link). Safe to call twice: Stripe retries webhooks.
  * Returns the booking's status afterwards.
  */
-function markPaid(token, sessionId, now = new Date()) {
+function markPaid(token, sessionId, now = new Date(), { byPhotographer = false } = {}) {
   const b = byToken(token);
   if (!b) return null;
   if (b.status !== 'hold' && b.status !== 'expired') return b.status; // already handled
@@ -78,8 +86,9 @@ function markPaid(token, sessionId, now = new Date()) {
       return 'needs_refund';
     }
     const fresh = byId(b.id);
-    mail.queue('confirmation', fresh);
-    mail.queue('admin_new', fresh);
+    // Confirmed by the photographer (Zelle): the client's email waits, for Undo, and the photographer needs no notice.
+    mail.queue('confirmation', fresh, { delayMs: byPhotographer ? UNDO_MS : 0 });
+    if (!byPhotographer) mail.queue('admin_new', fresh);
     return 'booked';
   });
 }
@@ -166,7 +175,7 @@ function markBalancePaid(b, by, sessionId) {
     db.run('UPDATE bookings SET balance_paid_at = ?, balance_paid_by = ?, balance_session_id = COALESCE(?, balance_session_id), updated_at = ? WHERE id = ?',
       [iso, by, sessionId || null, iso, b.id]);
     const fresh = byId(b.id);
-    if (fresh.status === 'delivered') mail.queue('unlocked', fresh, { delayMs: by === 'marked' ? UNDO_MS : 0 });
+    if (fresh.status === 'delivered') mail.queue('unlocked', fresh, { delayMs: by === 'online' ? 0 : UNDO_MS });
     return fresh;
   });
 }
@@ -175,8 +184,18 @@ function markBalancePaid(b, by, sessionId) {
 function undo(id, action, previous) {
   const b = byId(id);
   if (!b) throw new HttpError(404, 'No such booking.');
+  if (action === 'zelle') {
+    // A Zelle deposit confirmed by mistake: back to waiting for it, while the confirmation hasn't left.
+    if (b.status !== 'booked' || b.pay_method !== 'zelle') throw new HttpError(400, 'Nothing to undo.');
+    return db.tx(() => {
+      if (!mail.unqueue('confirmation', id)) throw new HttpError(409, 'Too late to undo: the client has already been told.');
+      db.run("UPDATE bookings SET status = 'hold', paid_at = NULL, hold_expires_at = ?, updated_at = ? WHERE id = ?",
+        [new Date(Date.now() + zelle.SENT_HOLD_HOURS * 3600000).toISOString(), db.nowIso(), id]);
+      return byId(id);
+    });
+  }
   if (action === 'balance') {
-    if (!b.balance_paid_at || b.balance_paid_by !== 'marked') throw new HttpError(400, 'Nothing to undo.');
+    if (!b.balance_paid_at || !['marked', 'zelle'].includes(b.balance_paid_by)) throw new HttpError(400, 'Nothing to undo.');
     return db.tx(() => {
       const pulled = mail.unqueue('unlocked', id);
       if (!pulled && db.get("SELECT 1 FROM outbox WHERE booking_id = ? AND kind = 'unlocked' AND status = 'sent'", [id])) {
@@ -205,6 +224,17 @@ function undo(id, action, previous) {
   });
 }
 
+/** The photographer confirms a Zelle payment arrived: the deposit (confirms the booking) or the balance (unlocks). */
+function confirmZelle(b, what) {
+  if (what === 'deposit') {
+    if (!['hold', 'expired'].includes(b.status)) return byId(b.id);
+    if (b.pay_method !== 'zelle') db.run("UPDATE bookings SET pay_method = 'zelle' WHERE id = ?", [b.id]);
+    markPaid(b.token, null, new Date(), { byPhotographer: true });
+    return byId(b.id);
+  }
+  return markBalancePaid(b, 'zelle');
+}
+
 /* ---------- views ---------- */
 
 /** What the client may see about their own booking (by its private token). */
@@ -217,6 +247,8 @@ function publicView(b) {
     prepped: !!b.prepped_at, prep: b.prep_json ? JSON.parse(b.prep_json) : null,
     galleryUrl: b.status === 'delivered' ? b.gallery_url : null,
     unlocked: isUnlocked(b),
+    payMethod: b.pay_method, ref: b.ref_code, holdExpiresAt: b.status === 'hold' ? b.hold_expires_at : null,
+    zelleSent: !!b.zelle_sent_at, balanceZelleSent: !!b.balance_zelle_sent_at,
   };
 }
 
@@ -224,8 +256,8 @@ function adminList() {
   return db.all(`SELECT b.*, p.name AS package_name,
       (SELECT COUNT(*) FROM photos ph WHERE ph.booking_id = b.id AND ph.deleted_at IS NULL) AS photo_count
     FROM bookings b JOIN packages p ON p.id = b.package_id
-    WHERE b.status NOT IN ('expired', 'hold') AND (b.status != 'cancelled' OR b.cancelled_at > ?)
-    ORDER BY b.start_at`, [new Date(Date.now() - 30 * 86400000).toISOString()])
+    WHERE b.status != 'expired' AND (b.status != 'hold' OR (b.pay_method = 'zelle' AND b.hold_expires_at > ?)) AND (b.status != 'cancelled' OR b.cancelled_at > ?)
+    ORDER BY b.start_at`, [new Date().toISOString(), new Date(Date.now() - 30 * 86400000).toISOString()])
     .map((b) => Object.assign(b, { prep: b.prep_json ? JSON.parse(b.prep_json) : null, when: mail.when(b) }));
 }
 
@@ -238,4 +270,4 @@ function remember(key, status, body) {
   db.run('INSERT OR IGNORE INTO idempotency (key, status, body, created_at) VALUES (?,?,?,?)', [key, status, JSON.stringify(body), db.nowIso()]);
 }
 
-module.exports = { isUnlocked, markBalancePaid, createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };
+module.exports = { confirmZelle, isUnlocked, markBalancePaid, createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };

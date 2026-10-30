@@ -182,10 +182,10 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   color: #cfccc6; font: inherit; font-size: 12px; letter-spacing: 0.04em; text-shadow: inherit;
 }
 .peek-label { border-bottom: 1px solid rgba(207, 204, 198, 0.4); padding-bottom: 1px; }
-.pkg.has-img > :not(.pkg-img, .pkg-foot), .pkg-foot .go { transition: opacity 0.25s ease; }
+.pkg.has-img > :not(.pkg-img, .pkg-foot, .see-portfolio), .pkg-foot .go { transition: opacity 0.25s ease; }
 /* Showing the photo: blur, veil and text fade away; the button covers the card, so a tap anywhere comes back. */
 .pkg.peeking::before { opacity: 0; }
-.pkg.peeking > :not(.pkg-img, .pkg-foot), .pkg.peeking .go { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0s 0.25s; }
+.pkg.peeking > :not(.pkg-img, .pkg-foot, .see-portfolio), .pkg.peeking .go { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0s 0.25s; }
 .pkg.peeking .peek { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-end; padding: 16px; }
 .pkg.peeking .peek-label { color: var(--text); background: rgba(8, 8, 11, 0.6); border: 0; border-radius: 999px; padding: 8px 14px; } /* readable on a light photo too */
 .steps-how { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); counter-reset: how; }
@@ -378,3 +378,95 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 .pkg-head h2 { margin: 0; }
 .pkg-move { display: flex; align-items: center; gap: 6px; }
 .pkg-move .btn { min-width: 44px; font-size: 18px; }
+
+/* ---------- package portfolio (/portfolio/<slug>) ---------- */
+.portfolio { padding: 28px 0 72px; }
+.portfolio-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.portfolio-head h1 { margin: 0 0 4px; font-size: clamp(2.4rem, 7vw, 4rem); text-transform: uppercase; letter-spacing: 0.04em; }
+.portfolio-head p { margin: 0; }
+.eyebrow { font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.grid .view { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.viewer { width: 100vw; height: 100svh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: rgba(4, 4, 6, 0.96); touch-action: pan-y; }
+.viewer::backdrop { background: rgba(0, 0, 0, 0.8); }
+.viewer img { position: absolute; inset: max(56px, env(safe-area-inset-top)) 12px max(56px, env(safe-area-inset-bottom)); width: calc(100% - 24px); height: calc(100% - 112px); object-fit: contain; user-select: none; -webkit-user-drag: none; }
+.viewer-btn {
+  position: absolute; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  color: var(--text); font-size: 28px; line-height: 1; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.viewer-close { top: max(10px, env(safe-area-inset-top)); right: 12px; }
+.viewer-prev { left: 12px; top: 50%; transform: translateY(-50%); }
+.viewer-next { right: 12px; top: 50%; transform: translateY(-50%); }
+.viewer.single .viewer-prev, .viewer.single .viewer-next, .viewer.single .viewer-count { display: none; }
+.viewer-count { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); text-align: center; color: var(--muted); font-size: 14px; margin: 0; }
+
+/* The glass "See portfolio" button over a package's clear photo: see-through, so it never hides the shot. */
+.see-portfolio {
+  position: absolute; left: 16px; bottom: 16px; z-index: 3; display: none; align-items: center; min-height: 44px; padding: 0 18px;
+  border-radius: 999px; color: #fff; text-decoration: none; font-weight: 600; font-size: 15px; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.32);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+}
+.see-portfolio:hover { background: rgba(255, 255, 255, 0.22); }
+.pkg.peeking .see-portfolio { display: inline-flex; }
+
+/* ---------- admin: a package's portfolio ---------- */
+.portfolio-admin { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.portfolio-admin h3 { display: flex; gap: 10px; align-items: baseline; margin: 0 0 4px; }
+.portfolio-admin p { font-size: 14px; }
+.thumb-first {
+  position: absolute; left: 4px; top: 4px; min-height: 36px; padding: 0 10px; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgba(8, 8, 11, 0.75); color: var(--text); font: 600 12px var(--font-body);
+}
+
+/* ---------- booking: frosted glass over the package's photo ----------
+   The photo shows through, softened; text stays readable because the glass is blurred and tinted, and every
+   control inside keeps its own darker fill. A light veil sits over the photo itself. */
+.bg.see-through .bg-veil { background: linear-gradient(to bottom, rgba(8, 8, 11, 0.25), rgba(8, 8, 11, 0.45)); }
+.book-glass .panel {
+  background: rgba(14, 14, 20, 0.5); border-color: rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25); backdrop-filter: blur(22px) saturate(1.25);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+.book-glass .choice, .book-glass .summary, .book-glass .terms { background: rgba(10, 10, 14, 0.45); border-color: rgba(255, 255, 255, 0.12); }
+.book-glass .choice:hover { background: rgba(10, 10, 14, 0.6); }
+.book-glass .choice[aria-pressed="true"] { background: rgba(233, 165, 96, 0.16); }
+.book-glass .day.off { background: transparent; }
+.book-glass input[type=text], .book-glass input[type=email], .book-glass input[type=tel], .book-glass textarea { background: rgba(10, 10, 14, 0.6); border-color: rgba(255, 255, 255, 0.14); }
+.book-glass .progress li { color: #d6d3cd; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .book-glass .panel { background: rgba(14, 14, 20, 0.9); }
+}
+
+/* ---------- choosing how to pay ---------- */
+.pay-methods { border: 0; padding: 0; margin: 18px 0 0; display: grid; gap: 8px; }
+.pay-methods legend { font-weight: 600; font-size: 14px; margin-bottom: 8px; padding: 0; }
+.pay-method { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; background: rgba(10, 10, 14, 0.45); font-weight: 400; margin: 0; min-height: 44px; }
+.pay-method input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.pay-method small { display: block; color: var(--muted); font-size: 13px; }
+.pay-method:has(input:checked) { border-color: var(--accent); background: rgba(233, 165, 96, 0.12); }
+
+/* ---------- the Zelle panel ---------- */
+.zelle { display: grid; gap: 16px; grid-template-columns: 1fr auto; align-items: start; }
+.z-main { min-width: 0; }
+.z-steps { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 4px; }
+.z-details { margin: 0; display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--radius-sm); background: rgba(10, 10, 14, 0.45); border: 1px solid var(--line); }
+.z-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; }
+.z-row dt { color: var(--muted); }
+.z-row dd { margin: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; text-align: right; font-weight: 600; }
+.z-row dd .num { min-width: 0; overflow-wrap: anywhere; }
+.z-copy { flex: none; white-space: nowrap; }
+@media (max-width: 420px) {
+  .z-row { flex-wrap: wrap; gap: 2px 12px; }
+  .z-row dd { flex: 1 1 100%; justify-content: space-between; text-align: left; }
+}
+.z-qr { width: 168px; height: auto; border-radius: var(--radius-sm); background: #fff; padding: 8px; }
+.z-foot { grid-column: 1 / -1; }
+.z-sent { margin: 0; color: var(--ok); }
+@media (max-width: 560px) { .zelle { grid-template-columns: 1fr; } .z-qr { justify-self: center; } }
+
+.unlock-zelle { flex-basis: 100%; padding-top: 14px; border-top: 1px solid var(--line); }
+.unlock-or { font-size: 1rem; margin: 0 0 10px; }
+
+.z-admin-qr img { width: 160px; height: auto; border-radius: var(--radius-sm); background: #fff; padding: 6px; display: block; margin-bottom: 8px; }
+#tab-payments .panel { margin-bottom: 16px; }

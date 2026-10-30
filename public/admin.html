@@ -34,6 +34,7 @@
           <button role="tab" aria-selected="false" data-tab="site">Site</button>
           <button role="tab" aria-selected="false" data-tab="settings">Availability</button>
           <button role="tab" aria-selected="false" data-tab="packages">Packages</button>
+          <button role="tab" aria-selected="false" data-tab="payments">Payments &amp; email</button>
         </div>
 
         <section id="tab-pipeline" role="tabpanel">
@@ -86,6 +87,31 @@
             <div class="field"><label for="terms">Booking terms <span class="hint">(clients agree to these before paying)</span></label><textarea id="terms" rows="5"></textarea></div>
             <button class="btn btn-primary" type="submit">Save</button>
           </form>
+        </section>
+
+        <section id="tab-payments" role="tabpanel" hidden>
+          <form class="panel narrow" id="zelle-form">
+            <h2>Zelle</h2>
+            <p class="muted" id="pay-summary"></p>
+            <label class="check"><input type="checkbox" id="z-enabled"> <span>Clients can pay the deposit and balance by Zelle (no fees)</span></label>
+            <div class="field"><label for="z-recipient">Your Zelle email or phone <span class="hint">(what clients send to)</span></label><input id="z-recipient" type="text" autocomplete="off"></div>
+            <div class="field"><label for="z-name">Name clients will see <span class="hint">(as your bank shows it, so they know it’s you)</span></label><input id="z-name" type="text"></div>
+            <div class="field"><label for="z-hold">Hold a time while the deposit arrives <span class="hint">(hours)</span></label><input id="z-hold" type="number" min="1" max="168" inputmode="numeric"></div>
+            <div class="field"><label>QR code <span class="hint">(optional: from your bank app’s Zelle screen, as a screenshot)</span></label>
+              <div class="z-admin-qr" id="z-qr"></div>
+              <div class="upload-row"><label class="btn btn-small" for="z-qr-input">Upload QR code</label><input class="sr-only" id="z-qr-input" type="file" accept="image/jpeg,image/png,image/webp"></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Save</button>
+            <p class="muted fine">When a client taps “I’ve sent it”, you get an email with their memo and a Confirm link. Check your bank app and tap Confirm, there or on the Bookings board.</p>
+            <p class="fine" id="card-status"></p>
+          </form>
+
+          <section class="panel narrow">
+            <h2>Email</h2>
+            <dl class="summary" id="email-status"></dl>
+            <div id="email-failed"></div>
+            <button type="button" class="btn" id="email-test">Send me a test email</button>
+          </section>
         </section>
 
         <section id="tab-packages" role="tabpanel" hidden>

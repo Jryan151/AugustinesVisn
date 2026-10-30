@@ -12,7 +12,7 @@
   const $ = (id) => document.getElementById(id);
   const WEEKS = 6;
 
-  const state = { packages: [], pkg: null, from: null, days: [], date: null, slot: null, key: null, terms: '' };
+  const state = { packages: [], pkg: null, from: null, days: [], date: null, slot: null, key: null, terms: '', methods: { card: true, zelle: false }, zelleHoldHours: 24 };
 
   /* ---------- steps and the address ---------- */
   function show(step, push = true) {
@@ -39,11 +39,11 @@
   addEventListener('popstate', (e) => show((e.state && e.state.step) || 1, false));
   document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => history.back()));
 
-  /* ---------- background: the chosen package's photo replaces the site's, behind a strong veil so forms stay calm ---------- */
+  /* ---------- background: the chosen package's photo replaces the site's, seen through the frosted booking panels ---------- */
   function setBackground(p) {
     const host = $('bg');
     if (!p || !p.image) { host.innerHTML = ''; return; }
-    host.innerHTML = `<div class="bg strong" aria-hidden="true"><img class="bg-photo on" data-key="${esc(p.image.key)}" src="${esc(p.image.web)}" alt="" decoding="async"><div class="bg-veil"></div></div>`;
+    host.innerHTML = `<div class="bg see-through" aria-hidden="true"><img class="bg-photo on" data-key="${esc(p.image.key)}" src="${esc(p.image.web)}" alt="" decoding="async"><div class="bg-veil"></div></div>`;
   }
 
   /* ---------- step 1: package ---------- */
@@ -146,9 +146,31 @@
       <div><dt>Deposit today</dt><dd class="price">${money(p.deposit_cents)}</dd></div>
       <div><dt>Balance, before download</dt><dd class="price">${money(p.price_cents - p.deposit_cents)}</dd></div>`;
     $('terms').textContent = state.terms;
-    $('pay').textContent = `Pay ${money(p.deposit_cents)} deposit`;
+    // Zelle first when it's on: it costs the client and the photographer nothing.
+    const both = state.methods.card && state.methods.zelle;
+    $('pay-methods').hidden = !both;
+    if (!document.querySelector('[name=method]:checked')) {
+      const first = document.querySelector(`[name=method][value=${state.methods.zelle ? 'zelle' : 'card'}]`);
+      if (first) first.checked = true;
+    }
+    paymentCopy();
     $('form-error').hidden = true;
   }
+
+  const chosenMethod = () => (state.methods.card && state.methods.zelle
+    ? (document.querySelector('[name=method]:checked') || {}).value || 'zelle'
+    : state.methods.zelle ? 'zelle' : 'card');
+  function paymentCopy() {
+    const d = money(state.pkg.deposit_cents);
+    if (chosenMethod() === 'zelle') {
+      $('pay').textContent = 'Hold my time';
+      $('pay-note').textContent = `Next you’ll see where to send the ${d} deposit by Zelle. Your time is held for ${state.zelleHoldHours} hours while it arrives.`;
+    } else {
+      $('pay').textContent = `Pay ${d} deposit`;
+      $('pay-note').textContent = 'You’ll pay on Stripe’s secure page. Your time is held for 30 minutes while you do.';
+    }
+  }
+  $('pay-methods').addEventListener('change', () => { state.key = null; paymentCopy(); });
 
   function fieldError(msg, field) {
     const box = $('form-error');
@@ -171,7 +193,7 @@
       const out = await api('/api/bookings', {
         method: 'POST',
         headers: { 'Idempotency-Key': state.key },
-        body: { package: state.pkg.slug, slot: state.slot.key, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: f.notes.value, agree: true },
+        body: { package: state.pkg.slug, slot: state.slot.key, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: f.notes.value, agree: true, method: chosenMethod() },
       });
       location.assign(out.checkoutUrl); // the button stays off while the browser leaves
       return;
@@ -202,6 +224,8 @@
     try {
       const [pk, site] = await Promise.all([api('/api/packages'), api('/api/site')]);
       state.packages = pk.packages; state.terms = site.terms;
+      if (site.payments) state.methods = site.payments;
+      if (site.zelleHoldHours) state.zelleHoldHours = site.zelleHoldHours;
     } catch (e) {
       $('package-choices').innerHTML = `<div class="error-box" role="alert">${esc(e.message)}</div>`;
       $('step-1').hidden = false;

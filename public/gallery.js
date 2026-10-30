@@ -27,9 +27,23 @@
       const waiting = justPaid && tries < 15;
       $('unlock-text').textContent = waiting
         ? 'Confirming your payment…'
-        : `Pay the ${money(g.balanceCents)} balance to download every photo in full quality, without the watermark.` + (g.canPayOnline ? '' : ' Pay in person and they unlock here.');
+        : `Pay the ${money(g.balanceCents)} balance to download every photo in full quality, without the watermark.`;
       $('pay').hidden = waiting || !g.canPayOnline;
-      $('pay').textContent = `Pay ${money(g.balanceCents)} and download`;
+      $('pay').textContent = `Pay ${money(g.balanceCents)} by card`;
+      // Zelle: no fees. Shown with the card button, or on its own when card isn't set up.
+      $('zelle').hidden = waiting || !g.zelle;
+      if (g.zelle && !waiting) {
+        $('zelle').innerHTML = `<h3 class="unlock-or">${g.canPayOnline ? 'Or pay by Zelle (no fees)' : 'Pay by Zelle (no fees)'}</h3>` +
+          AV.zellePanel({ zelle: g.zelle, amountCents: g.balanceCents, ref: g.ref, sent: g.zelleSent, what: 'balance' });
+        const sent = $('zelle').querySelector('[data-zelle-sent]');
+        if (sent) sent.addEventListener('click', async () => {
+          if (sent.getAttribute('aria-busy') === 'true') return;
+          sent.setAttribute('aria-busy', 'true');
+          try { await api(`/api/gallery/${encodeURIComponent(token)}/zelle-sent`, { method: 'POST', body: {} }); load(); }
+          catch (e) { sent.removeAttribute('aria-busy'); toast(e.message, { error: true }); }
+        });
+      }
+      if (!g.canPayOnline && !g.zelle) $('unlock-text').textContent = `Pay the ${money(g.balanceCents)} balance in person and your photos unlock here, in full quality.`;
       if (waiting) { tries++; setTimeout(load, 2000); }
     } else if (justPaid) {
       toast('Paid. Your photos are unlocked.');

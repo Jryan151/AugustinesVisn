@@ -34,7 +34,37 @@ domain's SSL mode should be **Full (strict)** (it likely already is, for the gen
 
 Open `https://book.yourdomain.com`: the site. `https://book.yourdomain.com/admin`: log in with the saved password.
 
-## 5. Payments and email (when you're ready to take real bookings)
+## 5a. Email through Resend (confirmations, reminders, galleries, Zelle notices)
+1. Make a free account at resend.com → **Domains → Add domain** → enter `send.jasonryean.pro` (a subdomain keeps
+   these emails' reputation separate from anything else on the domain).
+2. Resend shows 3–4 DNS records (an MX and TXT for SPF, a TXT for DKIM). In **Porkbun → jasonryean.pro → DNS**, add
+   each one exactly as shown: copy and paste the value. In Porkbun's **Host** box, enter only the part before
+   `.jasonryean.pro` (for example `send.send` or `resend._domainkey.send`, as Resend lists it). The `*` wildcard
+   record doesn't get in the way: it only answers for A lookups.
+3. Back in Resend, press **Verify**. Usually done within 15 minutes.
+4. **API Keys → Create** (Sending access). Then on the server:
+   ```
+   sudo nano /srv/booking/.env
+   RESEND_API_KEY=re_...
+   MAIL_FROM=Augustines.Visn <bookings@send.jasonryean.pro>
+   ADMIN_EMAIL=you@yourmail.com        # Zelle "check your bank" notices and new bookings go here
+   sudo runuser -u booking -- pm2 restart booking --update-env
+   ```
+5. **Admin → Payments & email → Send me a test email.** It says where it went, or exactly why it didn't.
+
+Emails made before the key was set were only written to the log (`pm2 logs booking`); they aren't re-sent.
+
+## 5b. Zelle (no fees)
+**Admin → Payments & email → Zelle**: tick it on, enter the email or phone your Zelle is registered to and the name
+clients will see, and optionally upload your Zelle QR code (a screenshot from your bank app's Zelle screen). Without a
+Stripe key, Zelle is the only way to pay, and booking is open.
+
+How it runs: the client books, sees where to send the deposit and a memo reference (like `AV-HJJY`), and their time
+is held (24 hours by default; 48 hours from when they tap "I've sent it"). You get an email with a **Confirm** link:
+check your bank app for the memo, tap Confirm, and they're booked (their email waits 10 seconds, so Undo works). The
+same for the balance from the gallery: Confirm unlocks their photos. Everything is also on the **Bookings** board.
+
+## 5c. Card payments (optional, later) (when you're ready to take real bookings)
 In `/srv/booking/.env` (`sudo nano /srv/booking/.env`):
 - `STRIPE_SECRET_KEY` (start with the `sk_test_` key), and in Stripe → Developers → Webhooks add
   `https://book.yourdomain.com/api/stripe/webhook` for `checkout.session.completed`; put its signing secret in

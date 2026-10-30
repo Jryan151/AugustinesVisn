@@ -17,7 +17,9 @@ npm test
 1. **Packages**: length, edited photos, turnaround, price.
 2. **Time**: only golden hour. Morning sessions start just before sunrise; evening sessions end just after sunset.
    Times are worked out from the sun at your location, so they move with the seasons on their own.
-3. **Details & deposit**: terms checkbox, then Stripe Checkout. The time is held for 30 minutes while they pay.
+3. **Details & deposit**: terms checkbox, then **Zelle** (no fees: the client gets the details and a memo reference,
+   taps "I've sent it", and the photographer confirms with one tap from an email) or **card** (Stripe Checkout,
+   when a key is set). The time is held while they pay: 30 minutes for card, 24+ hours for Zelle.
 4. **Emails** (automatic): confirmation with the prep link, 3-day and 1-day reminders, the gallery link, and a
    review request a week after delivery.
 
@@ -35,7 +37,9 @@ npm test
 - **Site**: up to 6 background photos behind every page, fading slowly from one to the next.
 - **Availability**: sunrise/sunset days of the week, shoots per week (the cap that protects your turnaround),
   notice, how far ahead, days off, booking terms.
-- **Packages**: prices, deposits, lengths, and the photo behind each package's card.
+- **Packages**: prices, deposits, lengths, order (↑ ↓), the photo behind each card, and a **portfolio** of example
+  shots (visitors reach it from "See portfolio" on the card's photo: `/portfolio/<package>`).
+- **Payments & email**: Zelle details (and QR code), whether card is on, email status and "Send me a test email".
 
 ## Things that can't go wrong
 - **No double bookings.** The time check and the hold happen together, and the database allows one live booking per time.

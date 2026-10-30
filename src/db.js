@@ -13,6 +13,7 @@
      outbox       every email, queued first and sent by the job loop (one per booking per kind, never twice)
      idempotency  answers already given to a request key, so a retried "pay" never makes a second booking
      photos       a client's finished photos, per booking (files in data/galleries/<booking id>/)
+     portfolio    example shots per package, shown on the package's portfolio page
      clients      the photographer's private notes on a client, by email (everything else about a client is
                   worked out from their bookings, so it can never disagree with them)
    ===================================================================== */
@@ -104,6 +105,15 @@ CREATE TABLE IF NOT EXISTS photos (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS photos_booking ON photos(booking_id, id);
+-- A package's portfolio: example shots shown on /portfolio/<slug>. Public files in data/media/.
+CREATE TABLE IF NOT EXISTS portfolio (
+  id INTEGER PRIMARY KEY,
+  package_id INTEGER NOT NULL REFERENCES packages(id),
+  file_json TEXT NOT NULL,
+  sort INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS portfolio_package ON portfolio(package_id, sort, id);
 CREATE TABLE IF NOT EXISTS clients (
   email TEXT PRIMARY KEY,
   notes TEXT NOT NULL DEFAULT '',
@@ -135,6 +145,8 @@ const DEFAULT_SETTINGS = {
     morningLeadMinutes: 15, // a morning session starts this long before sunrise
     eveningTailMinutes: 15, // an evening session ends this long after sunset
   },
+  // How clients can pay. Zelle has no fees; the photographer confirms each payment (one tap, from the email or Admin).
+  payments: { zelle: { enabled: false, recipient: '', name: '', holdHours: 24, qr: null } },
   // Photos behind every page, shown one after another with a slow fade. Each: { original, web, thumb, width, height }.
   siteBackground: { photos: [] },
   terms: 'The deposit holds your date and comes off your total. Reschedule free up to 72 hours before your session. Cancellations within 72 hours keep the deposit. The balance is due before your photos can be downloaded: pay it at the shoot or online in your gallery. You may use your photos personally; I may share a few in my portfolio unless you ask me not to.',
@@ -154,6 +166,8 @@ function init(file) {
   // Watermarked proof copies of each client photo (watermark.js).
   if (!has('photos', 'wm')) db.exec("ALTER TABLE photos ADD COLUMN wm TEXT NOT NULL DEFAULT ''; ALTER TABLE photos ADD COLUMN wm_thumb TEXT NOT NULL DEFAULT ''");
   // The balance: once paid (online or marked by the photographer), the client's clean photos unlock.
+  // Zelle: how the deposit is paid, the reference the client puts in the memo, and when they said they'd sent it.
+  if (!has('bookings', 'pay_method')) db.exec("ALTER TABLE bookings ADD COLUMN pay_method TEXT NOT NULL DEFAULT 'card'; ALTER TABLE bookings ADD COLUMN ref_code TEXT; ALTER TABLE bookings ADD COLUMN zelle_sent_at TEXT; ALTER TABLE bookings ADD COLUMN balance_zelle_sent_at TEXT; CREATE UNIQUE INDEX IF NOT EXISTS bookings_ref ON bookings(ref_code) WHERE ref_code IS NOT NULL;");
   if (!has('bookings', 'balance_paid_at')) db.exec('ALTER TABLE bookings ADD COLUMN balance_paid_at TEXT; ALTER TABLE bookings ADD COLUMN balance_session_id TEXT; ALTER TABLE bookings ADD COLUMN balance_paid_by TEXT');
   if (!get('SELECT 1 FROM packages LIMIT 1')) {
     for (const p of SEED_PACKAGES) {
