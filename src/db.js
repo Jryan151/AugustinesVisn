@@ -119,6 +119,18 @@ CREATE TABLE IF NOT EXISTS clients (
   notes TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL
 );
+-- In-person bookings: a code emailed to the client, which they type to book (inperson.js). Only a hash of the code is kept.
+CREATE TABLE IF NOT EXISTS email_checks (
+  token TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  expires_at TEXT NOT NULL,
+  booking_token TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS email_checks_email ON email_checks(email, created_at);
 CREATE TABLE IF NOT EXISTS idempotency (
   key TEXT PRIMARY KEY,
   status INTEGER NOT NULL,
@@ -146,7 +158,8 @@ const DEFAULT_SETTINGS = {
     eveningTailMinutes: 15, // an evening session ends this long after sunset
   },
   // How clients can pay. Zelle has no fees; the photographer confirms each payment (one tap, from the email or Admin).
-  payments: { zelle: { enabled: false, recipient: '', name: '', holdHours: 24, qr: null } },
+  // In person: the client confirms their email with a code, then pays the whole price at the shoot (inperson.js).
+  payments: { zelle: { enabled: false, recipient: '', name: '', holdHours: 24, qr: null }, inPerson: { enabled: true } },
   // Photos behind every page, shown one after another with a slow fade. Each: { original, web, thumb, width, height }.
   siteBackground: { photos: [] },
   terms: 'The deposit holds your date and comes off your total. Reschedule free up to 72 hours before your session. Cancellations within 72 hours keep the deposit. The balance is due before your photos can be downloaded: pay it at the shoot or online in your gallery. You may use your photos personally; I may share a few in my portfolio unless you ask me not to.',

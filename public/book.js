@@ -139,30 +139,41 @@
   /* ---------- step 3: details and deposit ---------- */
   function enterDetails() {
     const p = state.pkg; const s = state.slot;
-    if (!state.key) state.key = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
-    $('summary').innerHTML = `
-      <div><dt>Package</dt><dd>${esc(p.name)}</dd></div>
-      <div><dt>When</dt><dd>${day(state.date, { weekday: 'long', month: 'long' })}, <time datetime="${s.start}">${time(s.start)}</time>–<time datetime="${s.end}">${time(s.end)}</time></dd></div>
-      <div><dt>Deposit today</dt><dd class="price">${money(p.deposit_cents)}</dd></div>
-      <div><dt>Balance, before download</dt><dd class="price">${money(p.price_cents - p.deposit_cents)}</dd></div>`;
+    state.when = `${day(state.date, { weekday: 'long', month: 'long' })}, <time datetime="${s.start}">${time(s.start)}</time>–<time datetime="${s.end}">${time(s.end)}</time>`;
     $('terms').textContent = state.terms;
-    // Zelle first when it's on: it costs the client and the photographer nothing.
-    const both = state.methods.card && state.methods.zelle;
-    $('pay-methods').hidden = !both;
-    if (!document.querySelector('[name=method]:checked')) {
-      const first = document.querySelector(`[name=method][value=${state.methods.zelle ? 'zelle' : 'card'}]`);
-      if (first) first.checked = true;
-    }
+    // The ways to pay that are on. Zelle first when it's on: it costs the client and the photographer nothing.
+    const on = available();
+    document.querySelectorAll('[name=method]').forEach((r) => { r.closest('.pay-method').hidden = !on.includes(r.value); });
+    $('pay-methods').hidden = on.length < 2;
+    const picked = document.querySelector('[name=method]:checked');
+    if (!picked || !on.includes(picked.value)) { const first = document.querySelector(`[name=method][value=${on[0] || 'card'}]`); if (first) first.checked = true; }
     paymentCopy();
     $('form-error').hidden = true;
+    $('details').hidden = false; $('code-form').hidden = true;
   }
 
-  const chosenMethod = () => (state.methods.card && state.methods.zelle
-    ? (document.querySelector('[name=method]:checked') || {}).value || 'zelle'
-    : state.methods.zelle ? 'zelle' : 'card');
+  const KEYS = { zelle: 'zelle', card: 'card', in_person: 'inPerson' };
+  const available = () => ['zelle', 'card', 'in_person'].filter((m) => state.methods[KEYS[m]]);
+  const chosenMethod = () => {
+    const on = available();
+    const picked = (document.querySelector('[name=method]:checked') || {}).value;
+    return on.includes(picked) ? picked : on[0] || 'card';
+  };
+  // What's paid when, for the way they chose: in person is the whole price at the shoot, nothing today.
+  function summary() {
+    const p = state.pkg;
+    const money2 = chosenMethod() === 'in_person'
+      ? `<div><dt>Today</dt><dd class="price">${money(0)}</dd></div><div><dt>At the shoot, in person</dt><dd class="price">${money(p.price_cents)}</dd></div>`
+      : `<div><dt>Deposit today</dt><dd class="price">${money(p.deposit_cents)}</dd></div><div><dt>Balance, before download</dt><dd class="price">${money(p.price_cents - p.deposit_cents)}</dd></div>`;
+    $('summary').innerHTML = `<div><dt>Package</dt><dd>${esc(p.name)}</dd></div><div><dt>When</dt><dd>${state.when}</dd></div>${money2}`;
+  }
   function paymentCopy() {
+    summary();
     const d = money(state.pkg.deposit_cents);
-    if (chosenMethod() === 'zelle') {
+    if (chosenMethod() === 'in_person') {
+      $('pay').textContent = 'Email me a code';
+      $('pay-note').textContent = 'Nothing to pay now. We’ll email you a code; type it here and your time is booked.';
+    } else if (chosenMethod() === 'zelle') {
       $('pay').textContent = 'Hold my time';
       $('pay-note').textContent = `Next you’ll see where to send the ${d} deposit by Zelle. Your time is held for ${state.zelleHoldHours} hours while it arrives.`;
     } else {
@@ -187,14 +198,17 @@
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.value.trim())) return fieldError('Check your email address.', 'email');
     if (!f.agree.checked) return fieldError('Please agree to the booking terms.', 'agree');
     $('form-error').hidden = true;
+    // One key per request: a double tap or a retry sends the same key; a changed choice (or a new code) gets a new one.
+    if (!state.key) state.key = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
     btn.setAttribute('aria-busy', 'true');
-    const label = btn.textContent; btn.textContent = 'Holding your time…';
+    const label = btn.textContent; btn.textContent = chosenMethod() === 'in_person' ? 'Sending your code…' : 'Holding your time…';
     try {
       const out = await api('/api/bookings', {
         method: 'POST',
         headers: { 'Idempotency-Key': state.key },
         body: { package: state.pkg.slug, slot: state.slot.key, name: f.name.value, email: f.email.value, phone: f.phone.value, notes: f.notes.value, agree: true, method: chosenMethod() },
       });
+      if (out.verify) { btn.removeAttribute('aria-busy'); btn.textContent = label; return askForCode(out); }
       location.assign(out.checkoutUrl); // the button stays off while the browser leaves
       return;
     } catch (err) {
@@ -210,6 +224,34 @@
       fieldError(err.message, err.data && err.data.field);
     }
   });
+
+  /* ---------- in person: the code from their email books the time ---------- */
+  function askForCode(out) {
+    state.verify = out.verify;
+    $('details').hidden = true; $('code-form').hidden = false; $('code-error').hidden = true;
+    $('code-sent').textContent = `We sent a 6-digit code to ${out.email}. Type it here to book your time.`;
+    $('code').value = ''; $('code').focus();
+  }
+  $('code-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('code-book');
+    if (btn.getAttribute('aria-busy') === 'true') return;
+    const code = $('code').value.replace(/\D/g, '');
+    if (code.length !== 6) { $('code-error').textContent = 'The code is 6 digits.'; $('code-error').hidden = false; return $('code').focus(); }
+    btn.setAttribute('aria-busy', 'true'); const label = btn.textContent; btn.textContent = 'Booking…';
+    try {
+      const out = await api('/api/bookings/verify', { method: 'POST', body: { verify: state.verify, code } });
+      location.assign(out.checkoutUrl);
+    } catch (err) {
+      btn.removeAttribute('aria-busy'); btn.textContent = label;
+      if (err.data && err.data.code === 'slot_taken') {
+        state.slot = null; state.key = null; toast(err.message, { error: true }); await loadDays(true); show(2); return;
+      }
+      $('code-error').textContent = err.message; $('code-error').hidden = false; $('code').focus();
+    }
+  });
+  // A new code: the same details sent again as a new request.
+  $('code-new').addEventListener('click', () => { state.key = null; $('details').hidden = false; $('code-form').hidden = true; $('details').requestSubmit(); });
 
   /* ---------- start ---------- */
   async function start() {

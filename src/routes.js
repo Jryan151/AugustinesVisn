@@ -8,7 +8,8 @@
      GET  /api/packages                 what can be booked
      GET  /api/portfolio/:slug          a package's example shots (and an offer: a package made for one client, at /offer/<slug>)
      GET  /api/availability             times for a package (?package=slug&from=YYYY-MM-DD&days=42)
-     POST /api/bookings                 hold a time and start the deposit (needs an Idempotency-Key header)
+     POST /api/bookings                 hold a time and start the deposit (needs an Idempotency-Key header); in person: email a code
+     POST /api/bookings/verify          in person: the code from the email books the time
      GET  /api/bookings/:token          a client's own booking (the token is private, from their link)
      POST /api/bookings/:token/release  the client left checkout without paying: free their time at once
      POST /api/bookings/:token/prep     the prep questionnaire
@@ -48,9 +49,10 @@ const galleries = require('./galleries');
 const sitemedia = require('./sitemedia');
 const clients = require('./clients');
 const zelle = require('./zelle');
+const inperson = require('./inperson');
 
 /** How clients can pay right now: card (Stripe set up, or the development stand-in) and/or Zelle. */
-const methods = () => ({ card: payments.enabled() || payments.devMode(), zelle: zelle.enabled() });
+const methods = () => ({ card: payments.enabled() || payments.devMode(), zelle: zelle.enabled(), inPerson: inperson.enabled() });
 const { HttpError, createRouter } = require('./http');
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
@@ -115,6 +117,12 @@ function build() {
     if (!inFlight.has(key)) inFlight.set(key, placeBooking(req.body, key).finally(() => inFlight.delete(key)));
     const out = await inFlight.get(key);
     res.json(out.status, out.body);
+  });
+
+  // In person: the code from the client's email books their time. Answers { token, checkoutUrl } like a paid booking.
+  r.post('/api/bookings/verify', (req, res) => {
+    const b = inperson.verify(req.body.verify, req.body.code);
+    res.json(200, { token: b.token, checkoutUrl: `/booked?b=${b.token}` });
   });
 
   r.get('/api/bookings/:token', (req, res) => {
@@ -272,7 +280,7 @@ function build() {
 
   // Payments: Zelle details (and whether card is set up).
   r.get('/api/admin/payments', admin((req, res) => res.json(200, { methods: methods(), stripe: payments.enabled(), zelle: zelleAdmin() })));
-  r.put('/api/admin/payments', admin((req, res) => { zelle.saveSettings(req.body.zelle || {}); res.json(200, { methods: methods(), stripe: payments.enabled(), zelle: zelleAdmin() }); }));
+  r.put('/api/admin/payments', admin((req, res) => { if (req.body.zelle) zelle.saveSettings(req.body.zelle); if (req.body.inPerson) inperson.saveSettings(req.body.inPerson); res.json(200, { methods: methods(), stripe: payments.enabled(), zelle: zelleAdmin() }); }));
   r.put('/api/admin/payments/zelle-qr', admin(async (req, res) => { await zelle.setQr(req); res.json(200, { zelle: zelleAdmin() }); }), { stream: true });
   r.delete('/api/admin/payments/zelle-qr', admin((req, res) => { zelle.removeQr(); res.json(200, { zelle: zelleAdmin() }); }));
   r.post('/api/admin/bookings/:id/zelle-received', admin((req, res) => {
@@ -358,8 +366,20 @@ async function placeBooking(body, key) {
   if (!EMAIL_RE.test(email)) return { status: 400, body: { error: 'Check your email address.', field: 'email' } };
   if (body.agree !== true) return { status: 400, body: { error: 'Please agree to the booking terms.', field: 'agree' } };
   const can = methods();
-  const method = body.method === 'zelle' || body.method === 'card' ? body.method : can.card ? 'card' : 'zelle';
-  if (!can[method]) return { status: 503, body: { error: can.card || can.zelle ? 'That way of paying isn\u2019t available. Pick the other one.' : 'Online booking isn\u2019t open yet. Please email to book.' } };
+  const KEY = { card: 'card', zelle: 'zelle', in_person: 'inPerson' };
+  const method = KEY[body.method] ? body.method : can.card ? 'card' : can.zelle ? 'zelle' : 'in_person';
+  if (!can[KEY[method]]) return { status: 503, body: { error: can.card || can.zelle || can.inPerson ? 'That way of paying isn\u2019t available. Pick another.' : 'Booking isn\u2019t open yet. Please email to book.' } };
+
+  // In person: nothing is held until the client types the code from their email.
+  if (method === 'in_person') {
+    let out;
+    try { out = { status: 200, body: Object.assign({ method }, inperson.start({ pkg, slotKey: String(body.slot || ''), name, email, phone, notes })) }; } catch (e) {
+      if (e instanceof HttpError) return { status: e.status, body: Object.assign({ error: e.message }, e.extra) };
+      throw e;
+    }
+    bookings.remember('book:' + key, out.status, out.body);
+    return out;
+  }
 
   let hold;
   try { hold = bookings.createHold({ pkg, slotKey: String(body.slot || ''), name, email, phone, notes, method }); } catch (e) {

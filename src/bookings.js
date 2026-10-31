@@ -55,6 +55,31 @@ function createHold({ pkg, slotKey, name, email, phone, notes, method = 'card' }
   }
 }
 
+/**
+ * An in-person booking, made once the client has typed the code from their email (inperson.js). Booked straight
+ * away, with a $0 deposit: the whole price is the balance, paid at the shoot and marked paid in Admin.
+ */
+function createInPerson({ pkg, slotKey, name, email, phone, notes }, now = new Date()) {
+  expireStaleHolds(now);
+  const slot = availability.findSlot(pkg, slotKey, now);
+  if (!slot) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
+  const p = availability.parseSlotKey(slotKey);
+  const iso = now.toISOString();
+  try {
+    const r = db.run(`INSERT INTO bookings (token, package_id, slot_key, local_date, period, start_at, end_at, status, client_name, client_email,
+        client_phone, notes, price_cents, deposit_cents, pay_method, created_at, updated_at) VALUES (?,?,?,?,?,?,?, 'booked', ?,?,?,?,?, 0, 'in_person', ?,?)`,
+      [crypto.randomBytes(18).toString('base64url'), pkg.id, slotKey, p.date, p.period, slot.start, slot.end, name, email, phone || '', notes || '',
+        pkg.price_cents, iso, iso]);
+    const b = byId(r.lastInsertRowid);
+    mail.queue('confirmation', b);
+    mail.queue('admin_new', b);
+    return b;
+  } catch (e) {
+    if (isUniqueClash(e)) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
+    throw e;
+  }
+}
+
 /** Gives up a hold whose checkout couldn't be started, so the time is free again at once. */
 function releaseHold(id) {
   db.run("UPDATE bookings SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'hold'", [db.nowIso(), id]);
@@ -270,4 +295,4 @@ function remember(key, status, body) {
   db.run('INSERT OR IGNORE INTO idempotency (key, status, body, created_at) VALUES (?,?,?,?)', [key, status, JSON.stringify(body), db.nowIso()]);
 }
 
-module.exports = { confirmZelle, isUnlocked, markBalancePaid, createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };
+module.exports = { createInPerson, confirmZelle, isUnlocked, markBalancePaid, createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };

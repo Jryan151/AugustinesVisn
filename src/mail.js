@@ -38,12 +38,12 @@ function compose(kind, b, pkg) {
     case 'confirmation': return {
       to: b.client_email,
       subject: `You’re booked: ${pkg.name}, ${when(b)}`,
-      body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} session is booked for ${when(b)}. Your ${money(b.deposit_cents)} deposit is in, and the ${balance} balance unlocks your photos for download (pay it at the shoot or online in your gallery).\n\nOne thing to do now: tell me about the shoot (location idea, the look you want, who or what we’re shooting). It takes two minutes:\n${prepLink}\n\nYour booking: ${statusLink}${sign}`,
+      body: `Hi ${first(b.client_name)},\n\nYour ${pkg.name} session is booked for ${when(b)}. ${b.pay_method === 'in_person' ? `You’ll pay the ${balance} in person, at the shoot; once it’s paid, your photos unlock for download.` : `Your ${money(b.deposit_cents)} deposit is in, and the ${balance} balance unlocks your photos for download (pay it at the shoot or online in your gallery).`}\n\nOne thing to do now: tell me about the shoot (location idea, the look you want, who or what we’re shooting). It takes two minutes:\n${prepLink}\n\nYour booking: ${statusLink}${sign}`,
     };
     case 'admin_new': return {
       to: config.adminEmail,
       subject: `New booking: ${b.client_name}, ${pkg.name}, ${when(b)}`,
-      body: `${b.client_name} (${b.client_email}${b.client_phone ? ', ' + b.client_phone : ''}) booked ${pkg.name} for ${when(b)}.\nDeposit paid: ${money(b.deposit_cents)}.\n${b.notes ? '\nTheir note: ' + b.notes + '\n' : ''}\n${config.baseUrl}/admin`,
+      body: `${b.client_name} (${b.client_email}${b.client_phone ? ', ' + b.client_phone : ''}) booked ${pkg.name} for ${when(b)}.\n${b.pay_method === 'in_person' ? `Paying in person: ${balance} (email confirmed with a code).` : `Deposit paid: ${money(b.deposit_cents)}.`}\n${b.notes ? '\nTheir note: ' + b.notes + '\n' : ''}\n${config.baseUrl}/admin`,
     };
     case 'reminder3': return {
       to: b.client_email,
@@ -165,7 +165,13 @@ async function deliver(m) {
 }
 
 /** Sends what's due. Called by the job loop. */
-async function processOutbox(now = new Date()) {
+// One run at a time: a run started while another is going joins it, so nothing is picked up and sent twice.
+let running = null;
+function processOutbox(now = new Date()) {
+  if (!running) running = sendDue(now).finally(() => { running = null; });
+  return running;
+}
+async function sendDue(now) {
   const due = db.all("SELECT * FROM outbox WHERE status = 'pending' AND send_after <= ? ORDER BY id LIMIT 20", [now.toISOString()]);
   for (const m of due) {
     try {

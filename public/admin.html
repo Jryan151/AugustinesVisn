@@ -108,8 +108,10 @@
           </section>
           <section id="setup-payments" class="setup-part" aria-label="Payments and email" hidden>
             <form class="panel narrow" id="zelle-form">
-              <h2>Zelle</h2>
+              <h2>How clients pay</h2>
               <p class="muted" id="pay-summary"></p>
+              <label class="check"><input type="checkbox" id="ip-enabled"> <span>Clients can book and pay in person, at the shoot. They confirm their email with a code first, so nobody can hold a time with made-up details.</span></label>
+              <h3>Zelle</h3>
               <label class="check"><input type="checkbox" id="z-enabled"> <span>Clients can pay the deposit and balance by Zelle (no fees)</span></label>
               <div class="field"><label for="z-recipient">Your Zelle email or phone <span class="hint">(what clients send to)</span></label><input id="z-recipient" type="text" autocomplete="off"></div>
               <div class="field"><label for="z-name">Name clients will see <span class="hint">(as your bank shows it, so they know it’s you)</span></label><input id="z-name" type="text"></div>
@@ -140,7 +142,7 @@
             <details class="panel" open>
               <summary>The life of a booking</summary>
               <ol class="guide-steps">
-                <li><b>The client books.</b> They pick a package, a sunrise or sunset time, and pay the deposit (card or Zelle).</li>
+                <li><b>The client books.</b> They pick a package and a sunrise or sunset time. Then they either pay the deposit (card or Zelle) or choose <i>In person</i> and confirm their email with a code.</li>
                 <li><b>You both get an email.</b> They get a confirmation; you get a “new booking” notice.</li>
                 <li><b>They tell you about the shoot.</b> Their confirmation links to a short form: location, the look, who or what you’re shooting. The booking moves to <i>Prepped</i>.</li>
                 <li><b>Reminders go out on their own,</b> 3 days and 1 day before the session.</li>
@@ -161,7 +163,7 @@
                   <b>Availability</b> (which days have sunrise or sunset sessions, shoots per week, notice, how far ahead, days off, booking terms),
                   <b>Packages</b> (what’s for sale on the site),
                   <b>Site photos</b> (the backgrounds behind every page), and
-                  <b>Payments &amp; email</b> (Zelle details, card status, a test email).</dd>
+                  <b>Payments &amp; email</b> (in person on or off, Zelle details, card status, a test email).</dd>
                 <dt>Guide</dt><dd>This page.</dd>
               </dl>
             </details>
@@ -180,6 +182,7 @@
             <details class="panel">
               <summary>Getting paid</summary>
               <dl class="guide-list">
+                <dt>In person</dt><dd>The client picks a time and confirms their email with a 6-digit code. Nothing is paid online: they pay you the whole price at the shoot. Tap <b>Mark paid</b> on the booking when they do, and their photos unlock.</dd>
                 <dt>Deposit by card</dt><dd>Paid on Stripe. The booking confirms itself.</dd>
                 <dt>Deposit by Zelle</dt><dd>The time is held while it arrives. When the client taps “I’ve sent it”, you get an email. Check your bank, then tap <i>Confirm</i> in that email or <i>received</i> on the booking.</dd>
                 <dt>The balance</dt><dd>Paid online in their gallery, by Zelle, or in person. If they pay you in person, tap <b>Mark paid</b> on the booking and their photos unlock.</dd>

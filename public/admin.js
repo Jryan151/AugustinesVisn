@@ -122,7 +122,7 @@
     return `<article class="card${b.status === 'needs_refund' ? ' attention' : ''}" data-id="${b.id}">
       <h4>${esc(b.client_name)}</h4>
       <div class="meta">${esc(b.package_name)} · ${esc(b.when)}</div>
-      <div class="meta num">Deposit ${money(b.deposit_cents)} · balance ${money(b.price_cents - b.deposit_cents)}</div>
+      <div class="meta num">${b.pay_method === 'in_person' ? `Pays ${money(b.price_cents)} in person` : `Deposit ${money(b.deposit_cents)} · balance ${money(b.price_cents - b.deposit_cents)}`}</div>
       ${b.status === 'hold' ? zelleLine(b) : balanceLine(b)}
       <details><summary>Details${b.prep ? ' and shoot plan' : ''}</summary><dl>
         <dt>Email</dt><dd><a href="mailto:${esc(b.client_email)}">${esc(b.client_email)}</a></dd>
@@ -143,7 +143,7 @@
     const due = b.price_cents - b.deposit_cents;
     if (due <= 0 || !['booked', 'prepped', 'shot', 'editing', 'delivered'].includes(b.status)) return '';
     if (b.balance_paid_at) return `<div class="balance"><span class="badge delivered">Balance paid${b.balance_paid_by === 'online' ? ' online' : ''}</span></div>`;
-    return `<div class="balance"><span class="badge${b.balance_zelle_sent_at ? ' upcoming' : ''}">${b.balance_zelle_sent_at ? `Says Zelle sent · ${esc(b.ref_code || '')}` : 'Balance due'}</span>${btn('balance', b, 'Mark paid')}</div>`;
+    return `<div class="balance"><span class="badge${b.balance_zelle_sent_at ? ' upcoming' : ''}">${b.balance_zelle_sent_at ? `Says Zelle sent · ${esc(b.ref_code || '')}` : b.pay_method === 'in_person' ? 'Not paid yet' : 'Balance due'}</span>${btn('balance', b, 'Mark paid')}</div>`;
   }
   const btn = (act, b, label, to) => `<button type="button" class="btn btn-small" data-act="${act}" data-id="${b.id}"${to ? ` data-to="${to}"` : ''}>${label}</button>`;
 
@@ -704,19 +704,21 @@
   }
   function renderPayments(p) {
     const z = p.zelle;
+    $('ip-enabled').checked = p.methods.inPerson;
     $('z-enabled').checked = z.enabled; $('z-recipient').value = z.recipient; $('z-name').value = z.name; $('z-hold').value = z.holdHours;
     $('z-qr').innerHTML = z.qr ? `<img src="${esc(z.qr.url)}" alt="Your Zelle QR code"><button type="button" class="btn btn-small btn-text" id="z-qr-remove">Remove QR code</button>` : '<p class="muted">No QR code: clients copy your Zelle details instead.</p>';
     const rm = $('z-qr-remove'); if (rm) rm.addEventListener('click', async () => { try { renderPayments(Object.assign(p, await api('/api/admin/payments/zelle-qr', { method: 'DELETE' }))); } catch (e) { handle(e); } });
     $('card-status').innerHTML = p.stripe
       ? '<span class="badge delivered">Card payments on</span> Clients can pay by card through Stripe.'
       : '<span class="badge">Card payments off</span> No Stripe key yet, so clients pay by Zelle (or in person).';
-    $('pay-summary').textContent = p.methods.zelle || p.methods.card
-      ? `Clients can book and pay by ${[p.methods.zelle && 'Zelle', p.methods.card && 'card'].filter(Boolean).join(' or ')}.`
-      : 'Booking is closed: turn on Zelle (or add Stripe) so clients can pay the deposit.';
+    const ways = [p.methods.inPerson && 'in person', p.methods.zelle && 'Zelle', p.methods.card && 'card'].filter(Boolean);
+    $('pay-summary').textContent = ways.length
+      ? `Clients can book and pay ${ways.join(', ').replace(/, ([^,]*)$/, ' or $1')}.`
+      : 'Booking is closed: turn on in person or Zelle (or add Stripe) so clients can book.';
   }
   $('zelle-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const body = { zelle: { enabled: $('z-enabled').checked, recipient: $('z-recipient').value, name: $('z-name').value, holdHours: Number($('z-hold').value) } };
+    const body = { inPerson: { enabled: $('ip-enabled').checked }, zelle: { enabled: $('z-enabled').checked, recipient: $('z-recipient').value, name: $('z-name').value, holdHours: Number($('z-hold').value) } };
     try { renderPayments(await api('/api/admin/payments', { method: 'PUT', body })); toast('Saved.'); } catch (err) { handle(err); }
   });
   $('z-qr-input').addEventListener('change', async (e) => {

@@ -48,6 +48,7 @@ async function tick(now = new Date()) {
   await mail.processOutbox(now);
   db.run('DELETE FROM idempotency WHERE created_at < ?', [new Date(now.getTime() - DAY).toISOString()]);
   galleries.purgeDeleted(now);
+  require('./inperson').purge(now);
   try { backup(now); } catch (e) { console.error('backup failed:', e.message); }
 }
 
