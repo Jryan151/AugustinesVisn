@@ -151,6 +151,8 @@ function unqueue(kind, bookingId) {
 }
 
 async function deliver(m) {
+  // The demo never emails anyone: its "sent" emails are only marked sent in its own outbox.
+  if (require('./context').isDemo()) return;
   if (config.isTest) { sentInTests.push(m); return; }
   if (!config.resendApiKey) {
     console.log(`\n--- email (not sent: no RESEND_API_KEY) ---\nTo: ${m.to_addr}\nSubject: ${m.subject}\n\n${m.body}\n---\n`);
@@ -166,10 +168,11 @@ async function deliver(m) {
 
 /** Sends what's due. Called by the job loop. */
 // One run at a time: a run started while another is going joins it, so nothing is picked up and sent twice.
-let running = null;
+const running = { real: null, demo: null };
 function processOutbox(now = new Date()) {
-  if (!running) running = sendDue(now).finally(() => { running = null; });
-  return running;
+  const site = require('./context').isDemo() ? 'demo' : 'real';
+  if (!running[site]) running[site] = sendDue(now).finally(() => { running[site] = null; });
+  return running[site];
 }
 async function sendDue(now) {
   const due = db.all("SELECT * FROM outbox WHERE status = 'pending' AND send_after <= ? ORDER BY id LIMIT 20", [now.toISOString()]);

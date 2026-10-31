@@ -8,7 +8,6 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
-    "demo": "node --disable-warning=ExperimentalWarning server.js --demo",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\""
   },
   "engines": { "node": ">=22.13" }

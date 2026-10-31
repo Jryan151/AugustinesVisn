@@ -13,7 +13,7 @@
 <body>
   <nav class="nav glass" aria-label="Admin">
     <a class="brand" href="/">{{BRAND}}</a>
-    <div class="nav-links"><button class="btn btn-text" type="button" id="logout" hidden>Log out</button></div>
+    <div class="nav-links"><button class="btn btn-small" type="button" id="demo-toggle" hidden>Demo</button><button class="btn btn-text" type="button" id="logout" hidden>Log out</button></div>
   </nav>
 
   <main class="admin">
@@ -192,6 +192,12 @@
             <details class="panel">
               <summary>Mistakes and Undo</summary>
               <p>Most taps happen right away and show an <b>Undo</b> button for a few seconds. Anything that emails the client (sending a gallery, cancelling, marking paid, confirming Zelle) waits about 10 seconds first, so Undo can stop it. Once the email has gone, it can’t be undone.</p>
+            </details>
+
+            <details class="panel">
+              <summary>Demo: try everything with sample data</summary>
+              <p>Tap <b>Demo</b> at the top. Your browser then shows sample data on every page: a booking at every stage, an offer, a returning client and photos. Tap anything; nothing is real, no email is sent and no money moves.</p>
+              <p>Only you see it. Everyone else visiting the site sees the real one the whole time. Tap <b>Exit demo</b> at the bottom to come back, or <b>Reset</b> to put the sample data back as it started.</p>
             </details>
 
             <details class="panel">

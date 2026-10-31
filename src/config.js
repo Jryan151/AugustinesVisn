@@ -59,21 +59,16 @@ const config = {
   holdMinutes: 30,
 };
 
-/* Demo mode (`npm run demo`, or DEMO=1): a separate copy of the site full of sample data, for showing every feature.
-   It can never touch the real site: its own database and photo folders (whatever .env says), its own port, no email
-   sent (it's printed), no Stripe (the pretend checkout), and the admin password is "demo" (shown on the login page). */
-config.demo = process.argv.includes('--demo') || env('DEMO', '0') === '1';
-if (config.demo) {
-  const dir = path.resolve(env('DEMO_DIR', path.join(__dirname, '..', 'data', 'demo')));
-  Object.assign(config, {
-    demoDir: dir,
-    dbFile: path.join(dir, 'demo.sqlite'), backupDir: path.join(dir, 'backups'),
-    mediaDir: path.join(dir, 'media'), galleryDir: path.join(dir, 'galleries'),
-    port: parseInt(env('DEMO_PORT', '3300'), 10),
-    baseUrl: env('DEMO_BASE_URL', `http://localhost:${env('DEMO_PORT', '3300')}`).replace(/\/+$/, ''),
-    adminPassword: 'demo', adminEmail: 'photographer@demo.example',
-    stripeSecretKey: '', stripeWebhookSecret: '', resendApiKey: '',
-  });
+/* The demo (Admin's Demo switch): sample data in its own database and folders, under data/demo/ (or DEMO_DIR).
+   The photo folders below answer for whichever site the current request belongs to (context.js), so the same code
+   files a demo upload in the demo's folder and a real one in the real folder. The demo never sees the real ones. */
+const context = require('./context');
+config.demoDir = path.resolve(env('DEMO_DIR', path.join(__dirname, '..', 'data', 'demo')));
+config.demoDbFile = path.join(config.demoDir, 'demo.sqlite');
+for (const key of ['mediaDir', 'galleryDir', 'backupDir']) {
+  const real = config[key];
+  const demo = path.join(config.demoDir, { mediaDir: 'media', galleryDir: 'galleries', backupDir: 'backups' }[key]);
+  Object.defineProperty(config, key, { enumerable: true, get: () => (context.isDemo() ? demo : real) });
 }
 
 if (isProd && !config.adminPassword) {

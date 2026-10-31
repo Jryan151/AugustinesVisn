@@ -167,10 +167,23 @@ const DEFAULT_SETTINGS = {
 
 let db = null;
 
+// The demo's own database (Admin's Demo switch), opened the first time a demo request needs it.
+let demoDb = null;
+
+/** Opens the real database (and closes the demo's, so tests start clean). */
 function init(file) {
   if (db) db.close();
+  if (demoDb) { demoDb.close(); demoDb = null; }
+  db = open(file);
+  return db;
+}
+
+/** Opens one database file and brings it up to date: tables, new columns, the starting packages and settings. */
+function open(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-  db = new DatabaseSync(file);
+  const db = new DatabaseSync(file);
+  const get = (sql, params = []) => db.prepare(sql).get(...params);
+  const run = (sql, params = []) => db.prepare(sql).run(...params);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 3000;');
   db.exec(SCHEMA);
   // Columns added after the first release (an existing database gets them here, once).
@@ -196,7 +209,13 @@ function init(file) {
   return db;
 }
 
-const conn = () => { if (!db) throw new Error('db.init() first'); return db; };
+// Every query goes to the database of the site this request belongs to: the real one, or the demo's.
+const conn = () => {
+  if (!db) throw new Error('db.init() first');
+  if (!require('./context').isDemo()) return db;
+  if (!demoDb) demoDb = open(require('./config').demoDbFile);
+  return demoDb;
+};
 const get = (sql, params = []) => conn().prepare(sql).get(...params);
 const all = (sql, params = []) => conn().prepare(sql).all(...params);
 const run = (sql, params = []) => conn().prepare(sql).run(...params);

@@ -13,7 +13,9 @@ const db = require('./src/db');
 const routes = require('./src/routes');
 const jobs = require('./src/jobs');
 const sitemedia = require('./src/sitemedia');
-const { HttpError, serveStatic, securityHeaders, decorate } = require('./src/http');
+const { HttpError, serveStatic, securityHeaders, decorate, parseCookies } = require('./src/http');
+const context = require('./src/context');
+const auth = require('./src/auth');
 
 // Clean addresses for the pages.
 const REWRITES = [
@@ -51,8 +53,8 @@ function page(file, res) {
     .replace(/(src|href)="\/([a-z0-9-]+\.(?:js|css))"/g, `$1="/$2?v=${BUILD}"`)
     .replace('<!--SITE_CSS-->', () => `<link rel="stylesheet" href="/site.css?v=${sitemedia.cssStamp()}">`)
     .replace(/\{\{BRAND\}\}/g, () => esc(config.businessName))
-    // Demo mode: every page says so, so nobody mistakes the sample data for real bookings.
-    .replace(/<body[^>]*>/, (tag) => (config.demo ? `${tag}\n  <div class="demo-banner" role="note"><b>Demo</b> · sample data · <a href="/admin">Admin</a>: password demo<button type="button" class="demo-reset" hidden>Reset sample data</button></div>` : tag));
+    // In the demo, every page says so (and only the photographer, who switched it on, ever sees it).
+    .replace(/<body[^>]*>/, (tag) => (context.isDemo() ? `${tag}\n  <div class="demo-banner" role="note"><b>Demo</b> · sample data, only you see this<button type="button" class="demo-reset">Reset</button><button type="button" class="demo-exit">Exit demo</button></div>` : tag));
   res.setHeader('Cache-Control', 'no-cache');
   res.send(200, html, 'text/html; charset=utf-8');
 }
@@ -60,7 +62,14 @@ function page(file, res) {
 function createApp({ dbFile = config.dbFile } = {}) {
   db.init(dbFile);
   const router = routes.build();
-  return http.createServer(async (req, res) => {
+  return http.createServer((req, res) => {
+    // The demo: only for the logged-in photographer who switched it on (Admin › Demo). Everyone else, always real.
+    req.cookies = parseCookies(req);
+    const demo = req.cookies.av_demo === '1' && auth.isAdmin(req);
+    return context.run(demo, () => handle(req, res));
+  });
+
+  async function handle(req, res) {
     decorate(res);
     securityHeaders(res);
     try {
@@ -85,17 +94,15 @@ function createApp({ dbFile = config.dbFile } = {}) {
       console.error(req.method, req.url, e);
       res.json(500, { error: 'Something went wrong on our side. Try again.' });
     }
-  });
+  }
 }
 
 if (require.main === module) {
   const server = createApp();
-  // Demo mode: build the sample data before the first visitor arrives (once; Reset in Admin builds it again).
-  (config.demo ? require('./src/demo').prepare() : Promise.resolve()).then(() => server.listen(config.port, config.host, () => {
-    if (config.demo) console.log(`DEMO MODE: sample data only, its own database (${config.dbFile}). Email isn't sent; payment is pretend. Admin password: demo`);
+  server.listen(config.port, config.host, () => {
     console.log(`${config.businessName}: ${config.baseUrl} (admin at /admin)`);
-    if (!config.stripeSecretKey) console.log(config.isProd && !config.demo ? 'STRIPE_SECRET_KEY is not set: booking is closed.' : 'No Stripe key: using the development "pay" link.');
-  }));
+    if (!config.stripeSecretKey) console.log(config.isProd ? 'STRIPE_SECRET_KEY is not set: booking is closed.' : 'No Stripe key: using the development "pay" link.');
+  });
   jobs.start();
 }
 

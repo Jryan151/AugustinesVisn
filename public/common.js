@@ -70,6 +70,20 @@
     return have;
   }
 
+  /* ---------- the demo note (only in the photographer's own browser, while the Demo switch is on) ---------- */
+  document.addEventListener('click', async (e) => {
+    const exit = e.target.closest('.demo-exit'); const reset = e.target.closest('.demo-reset');
+    if (!exit && !reset) return;
+    const b = exit || reset; if (b.getAttribute('aria-busy') === 'true') return;
+    if (reset && !confirm('Put the sample data back as it started? Changes made in the demo are lost.')) return;
+    b.setAttribute('aria-busy', 'true'); b.textContent = exit ? 'Leaving…' : 'Resetting…';
+    try {
+      await api(exit ? '/api/admin/demo' : '/api/admin/demo/reset', { method: 'POST', body: exit ? { on: false } : {} });
+      try { sessionStorage.clear(); } catch (err) { /* storage off */ }
+      location.href = exit ? '/admin' : location.href;
+    } catch (err) { b.removeAttribute('aria-busy'); b.textContent = exit ? 'Exit demo' : 'Reset'; alert(err.message); }
+  });
+
   function slow(ms, show) {
     const t = setTimeout(show, ms);
     return () => clearTimeout(t);

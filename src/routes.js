@@ -50,6 +50,7 @@ const sitemedia = require('./sitemedia');
 const clients = require('./clients');
 const zelle = require('./zelle');
 const inperson = require('./inperson');
+const context = require('./context');
 
 /** How clients can pay right now: card (Stripe set up, or the development stand-in) and/or Zelle. */
 const methods = () => ({ card: payments.enabled() || payments.devMode(), zelle: zelle.enabled(), inPerson: inperson.enabled() });
@@ -87,7 +88,7 @@ function build() {
     res.end(sitemedia.siteCss());
   });
 
-  r.get('/api/site', (req, res) => res.json(200, { demo: config.demo, businessName: config.businessName, terms: db.setting('terms'), payments: methods(), zelle: zelle.publicInfo(), zelleHoldHours: zelle.settings().holdHours }));
+  r.get('/api/site', (req, res) => res.json(200, { demo: context.isDemo(), businessName: config.businessName, terms: db.setting('terms'), payments: methods(), zelle: zelle.publicInfo(), zelleHoldHours: zelle.settings().holdHours }));
 
   r.get('/api/packages', (req, res) => {
     res.json(200, { packages: db.all(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE active = 1 AND offer = 0 ORDER BY sort, id`).map(publicPackage) });
@@ -240,15 +241,22 @@ function build() {
   /* ---------- admin ---------- */
   r.post('/api/admin/login', (req, res) => auth.login(req, res));
   r.post('/api/admin/logout', (req, res) => auth.logout(req, res));
-  r.get('/api/admin/me', (req, res) => res.json(200, { admin: auth.isAdmin(req), demo: config.demo }));
-  // Demo mode only: put every sample booking, photo and setting back as it started.
-  r.post('/api/admin/demo/reset', (req, res, next) => {
-    if (!config.demo) throw new HttpError(404, 'Not found.');
-    auth.requireAdmin(req);
-    return require('./demo').reset().then((out) => res.json(200, out));
-  });
+  r.get('/api/admin/me', (req, res) => res.json(200, { admin: auth.isAdmin(req), demo: context.isDemo() }));
 
   const admin = (fn) => (req, res) => { auth.requireAdmin(req); return fn(req, res); };
+  // The Demo switch: this browser (the logged-in photographer's) sees the sample data until it's switched off.
+  // The first time, the sample data is built. Everyone else keeps seeing the real site.
+  r.post('/api/admin/demo', admin(async (req, res) => {
+    const on = req.body.on === true;
+    if (on) await context.run(true, () => require('./demo').prepare());
+    res.setHeader('Set-Cookie', `av_demo=${on ? '1' : ''}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${on ? 12 * 3600 : 0}${config.isProd ? '; Secure' : ''}`);
+    res.json(200, { demo: on });
+  }));
+  // Puts every sample booking, photo and setting back as it started. Only from inside the demo.
+  r.post('/api/admin/demo/reset', admin(async (req, res) => {
+    if (!context.isDemo()) throw new HttpError(400, 'Switch the demo on first.');
+    res.json(200, await require('./demo').reset());
+  }));
 
   r.get('/api/admin/bookings', admin((req, res) => res.json(200, { bookings: bookings.adminList() })));
   r.post('/api/admin/bookings/:id/status', admin((req, res) => res.json(200, { booking: bookings.setStatus(Number(req.params.id), String(req.body.status || '')) })));

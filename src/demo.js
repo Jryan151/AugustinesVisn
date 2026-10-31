@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   demo.js — the sample data behind demo mode (config.demo), so every feature can be seen working.
+   demo.js — the sample data behind the demo (Admin's Demo switch; context.js), so every feature can be seen working.
 
    reset() wipes the demo's own database and photo folders, then builds:
      - the three packages, with card photos and example shots, and photos behind every page
@@ -10,7 +10,7 @@
      - a returning client with private notes, and the emails those bookings would have sent
    Every date is worked out from today, so the demo always looks current. The photos are made with ffmpeg (plain warm
    gradients, no one's real work) and go through the same upload code as real ones; without ffmpeg there are no photos.
-   This file runs only in demo mode. It refuses to run otherwise.
+   It runs only inside a demo request, and refuses otherwise: the real site's data is never touched.
    ===================================================================== */
 const { execFile } = require('child_process');
 const crypto = require('crypto');
@@ -19,7 +19,7 @@ const path = require('path');
 const config = require('./config');
 const db = require('./db');
 const availability = require('./availability');
-const media = require('./media');
+const context = require('./context');
 
 const DAY = 86400000;
 const tok = () => crypto.randomBytes(18).toString('base64url');
@@ -45,7 +45,8 @@ function slotAt(daysFromNow, period = 'evening', minutes = 60) {
 }
 
 async function reset() {
-  if (!config.demo) throw new Error('demo.reset() runs only in demo mode.');
+  // Twice-checked: inside the demo, and pointed at the demo's own folders. The real site's files are never touched.
+  if (!context.isDemo() || !config.galleryDir.startsWith(config.demoDir) || !config.mediaDir.startsWith(config.demoDir)) throw new Error('demo.reset() runs only in the demo.');
   // Start clean: the demo's own data only (config points every folder at the demo's directory).
   for (const t of ['photos', 'portfolio', 'outbox', 'email_checks', 'idempotency', 'clients', 'bookings']) db.run(`DELETE FROM ${t}`);
   // The packages go back to the starting three (a visitor may have edited or added some).
@@ -143,9 +144,9 @@ async function reset() {
   return { bookings: Object.keys(made).length, offer: offerPkg.slug };
 }
 
-/** On start: build the sample data the first time (it stays as visitors change it, until Reset). */
+/** The first time the demo is switched on: build the sample data (it stays as it's played with, until Reset). */
 async function prepare() {
-  if (!config.demo) return null;
+  if (!context.isDemo()) return null;
   if (db.get('SELECT 1 FROM bookings LIMIT 1')) return null;
   return reset();
 }

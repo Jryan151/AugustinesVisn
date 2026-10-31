@@ -504,4 +504,4 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 .demo-banner a { color: var(--accent); }
 /* Room at the bottom of every page, so the note never hides the last button for good. */
 body:has(.demo-banner) { padding-bottom: 72px; }
-.demo-reset { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font: 600 13px var(--font-body); cursor: pointer; }
+.demo-reset, .demo-exit { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font: 600 13px var(--font-body); cursor: pointer; }
