@@ -45,6 +45,11 @@ npm test
   - **Payments & email**: Zelle details (and QR code), whether card is on, email status and "Send me a test email".
 - **Guide**: how the site works, in plain words.
 
+## Filling in the packages
+`sudo runuser -u booking -- node /srv/booking/scripts/fill-packages.js` fills in Portrait, Couples and Sports with the
+suggested details in `src/packagefill.js` (description, length, photos, turnaround, price, deposit). Names, links,
+photos and order are never touched; it shows every change and asks before saving.
+
 ## Demo
 In Admin, tap **Demo**: your browser shows sample data on every page (a booking at every stage, an offer, a returning
 client, photos) until you tap **Exit demo**. Only the logged-in photographer can switch it on; everyone else always
