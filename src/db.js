@@ -220,4 +220,4 @@ function saveSetting(key, value) {
 
 const nowIso = () => new Date().toISOString();
 
-module.exports = { init, get, all, run, tx, setting, saveSetting, nowIso, PIPELINE, ACTIVE, STATUSES, DEFAULT_SETTINGS };
+module.exports = { init, get, all, run, tx, setting, saveSetting, nowIso, PIPELINE, ACTIVE, STATUSES, DEFAULT_SETTINGS, SEED_PACKAGES };

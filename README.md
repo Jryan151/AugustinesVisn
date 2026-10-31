@@ -45,6 +45,11 @@ npm test
   - **Payments & email**: Zelle details (and QR code), whether card is on, email status and "Send me a test email".
 - **Guide**: how the site works, in plain words.
 
+## Demo mode
+`npm run demo` starts a separate copy full of sample data (a booking at every stage, an offer, a returning client,
+photos), on its own database, at http://localhost:3300 (admin password: demo). No email is sent and no real money
+is taken. See DEPLOY.md to put it on a subdomain.
+
 ## Things that can't go wrong
 - **No double bookings.** The time check and the hold happen together, and the database allows one live booking per time.
 - **No double charges.** "Pay deposit" sends an Idempotency-Key; a retry or double tap gets the same booking back.

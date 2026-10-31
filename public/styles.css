@@ -495,3 +495,13 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
   .tabs { gap: 0; }
   .tabs button { padding: 0 6px; font-size: 14px; }
 }
+
+/* Demo mode: a small note on every page that this is sample data (it never covers the page's own buttons for long:
+   it sits low and narrow, above the safe area). */
+.demo-banner { position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 60; max-width: calc(100% - 24px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 14px; border-radius: 14px;
+  background: rgba(8, 8, 11, 0.85); border: 1px solid var(--accent); color: var(--text); font: 500 13px var(--font-body); }
+.demo-banner a { color: var(--accent); }
+/* Room at the bottom of every page, so the note never hides the last button for good. */
+body:has(.demo-banner) { padding-bottom: 72px; }
+.demo-reset { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font: 600 13px var(--font-body); cursor: pointer; }

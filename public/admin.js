@@ -37,12 +37,24 @@
   async function boot() {
     const me = await api('/api/admin/me').catch(() => ({ admin: false }));
     $('login').hidden = me.admin; $('app').hidden = !me.admin; $('logout').hidden = !me.admin;
+    // Demo mode: the password is shown, and a button puts the sample data back.
+    const reset = document.querySelector('.demo-reset');
+    if (me.demo && !me.admin && !$('password').value) $('password').placeholder = 'demo';
+    if (reset) reset.hidden = !me.admin;
     if (me.admin) { loadBoard(); loadSettings(); } else $('password').focus();
   }
   $('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     try { await api('/api/admin/login', { method: 'POST', body: { password: $('password').value } }); $('password').value = ''; $('login-error').hidden = true; boot(); }
     catch (err) { $('login-error').textContent = err.message; $('login-error').hidden = false; }
+  });
+  const demoReset = document.querySelector('.demo-reset');
+  if (demoReset) demoReset.addEventListener('click', async () => {
+    if (demoReset.getAttribute('aria-busy') === 'true') return;
+    if (!confirm('Put all the sample data back as it started? Anything changed in the demo is lost.')) return;
+    demoReset.setAttribute('aria-busy', 'true'); demoReset.textContent = 'Resetting…';
+    try { await api('/api/admin/demo/reset', { method: 'POST', body: {} }); location.reload(); }
+    catch (e) { demoReset.removeAttribute('aria-busy'); demoReset.textContent = 'Reset sample data'; handle(e); }
   });
   $('logout').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST', body: {} }).catch(() => {}); boot(); });
   function handle(err) {

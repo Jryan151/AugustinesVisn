@@ -87,7 +87,7 @@ function build() {
     res.end(sitemedia.siteCss());
   });
 
-  r.get('/api/site', (req, res) => res.json(200, { businessName: config.businessName, terms: db.setting('terms'), payments: methods(), zelle: zelle.publicInfo(), zelleHoldHours: zelle.settings().holdHours }));
+  r.get('/api/site', (req, res) => res.json(200, { demo: config.demo, businessName: config.businessName, terms: db.setting('terms'), payments: methods(), zelle: zelle.publicInfo(), zelleHoldHours: zelle.settings().holdHours }));
 
   r.get('/api/packages', (req, res) => {
     res.json(200, { packages: db.all(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE active = 1 AND offer = 0 ORDER BY sort, id`).map(publicPackage) });
@@ -240,7 +240,13 @@ function build() {
   /* ---------- admin ---------- */
   r.post('/api/admin/login', (req, res) => auth.login(req, res));
   r.post('/api/admin/logout', (req, res) => auth.logout(req, res));
-  r.get('/api/admin/me', (req, res) => res.json(200, { admin: auth.isAdmin(req) }));
+  r.get('/api/admin/me', (req, res) => res.json(200, { admin: auth.isAdmin(req), demo: config.demo }));
+  // Demo mode only: put every sample booking, photo and setting back as it started.
+  r.post('/api/admin/demo/reset', (req, res, next) => {
+    if (!config.demo) throw new HttpError(404, 'Not found.');
+    auth.requireAdmin(req);
+    return require('./demo').reset().then((out) => res.json(200, out));
+  });
 
   const admin = (fn) => (req, res) => { auth.requireAdmin(req); return fn(req, res); };
 

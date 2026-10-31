@@ -108,3 +108,23 @@ as SETUP.md suggests for the generator) include it. Now and then, download the n
 ## Remove it
 `sudo bash /tmp/install.sh --remove` takes out the pm2 entry and the nginx file. The folder and its data are kept
 until you delete them yourself.
+
+## Demo site (optional)
+
+A second copy of the site full of sample data, to show every feature. It has its own database and photo folders
+(`data/demo/`), never sends email, never takes real money, and its admin password is `demo`. It can run next to the
+real site on the same server without touching it.
+
+On your own computer: `npm run demo`, then open http://localhost:3300 (admin password: demo).
+
+On the server, as its own pm2 app on its own port and subdomain (point `demo.<your domain>` at the server first):
+
+```
+sudo runuser -u booking -- env DEMO_PORT=3300 DEMO_BASE_URL=https://demo.<your domain> pm2 start /srv/booking/server.js --name booking-demo -- --demo
+sudo runuser -u booking -- pm2 save
+```
+
+Then an nginx site for `demo.<your domain>` exactly like `deploy/nginx-booking.conf`, with `proxy_pass http://127.0.0.1:3300;`,
+and a certificate (`sudo certbot --nginx -d demo.<your domain>`). After `update.sh`, restart it too:
+`sudo runuser -u booking -- pm2 restart booking-demo`. **Reset sample data** (on the demo's own banner, once logged in)
+puts everything back as it started.

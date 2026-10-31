@@ -36,7 +36,8 @@ async function stripe(method, pathname, params, idempotencyKey) {
 }
 
 const enabled = () => !!config.stripeSecretKey;
-const devMode = () => !enabled() && !config.isProd;
+// The pretend checkout: while building, and always in the demo (which never takes real money).
+const devMode = () => !enabled() && (!config.isProd || config.demo);
 
 /**
  * Starts payment of the deposit. Returns { url, sessionId } — url is where to send the client.

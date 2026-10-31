@@ -59,6 +59,23 @@ const config = {
   holdMinutes: 30,
 };
 
+/* Demo mode (`npm run demo`, or DEMO=1): a separate copy of the site full of sample data, for showing every feature.
+   It can never touch the real site: its own database and photo folders (whatever .env says), its own port, no email
+   sent (it's printed), no Stripe (the pretend checkout), and the admin password is "demo" (shown on the login page). */
+config.demo = process.argv.includes('--demo') || env('DEMO', '0') === '1';
+if (config.demo) {
+  const dir = path.resolve(env('DEMO_DIR', path.join(__dirname, '..', 'data', 'demo')));
+  Object.assign(config, {
+    demoDir: dir,
+    dbFile: path.join(dir, 'demo.sqlite'), backupDir: path.join(dir, 'backups'),
+    mediaDir: path.join(dir, 'media'), galleryDir: path.join(dir, 'galleries'),
+    port: parseInt(env('DEMO_PORT', '3300'), 10),
+    baseUrl: env('DEMO_BASE_URL', `http://localhost:${env('DEMO_PORT', '3300')}`).replace(/\/+$/, ''),
+    adminPassword: 'demo', adminEmail: 'photographer@demo.example',
+    stripeSecretKey: '', stripeWebhookSecret: '', resendApiKey: '',
+  });
+}
+
 if (isProd && !config.adminPassword) {
   console.warn('ADMIN_PASSWORD is not set, so the admin page can’t be opened. Set it in .env.');
 }
