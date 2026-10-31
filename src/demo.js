@@ -67,7 +67,7 @@ async function reset() {
   const pkgs = Object.fromEntries(db.all('SELECT * FROM packages WHERE offer = 0').map((p) => [p.slug, p]));
   const offer = db.run(`INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort, active, offer)
     VALUES (?,?,?,?,?,?,?,?,?,1,1)`, ['offer-' + crypto.randomBytes(9).toString('hex'), 'Golden hour with Maya',
-    'Your Supra at Papago Park as the sun goes down: parked shots from a few angles, then some of you with the car.', 60, 15, 7, 12000, 4000, 99]);
+    'Your Supra at Papago Park as the sun goes down: rolling shots on the loop, then a few portraits with the car.', 75, 30, 10, 30000, 9000, 99]);
   const offerPkg = db.get('SELECT * FROM packages WHERE id = ?', [offer.lastInsertRowid]);
 
   // ---- bookings, one at every stage ----
@@ -90,7 +90,7 @@ async function reset() {
     zelle: insert({ pkg: pkgs.couples, days: 6, status: 'hold', method: 'zelle', paid: false, zelleSent: true, holdUntil: now + 40 * 3600000, name: 'Diego Morales', email: 'diego@demo.example', phone: '602-555-0141', bookedDaysAgo: 0 }),
     booked: insert({ pkg: pkgs.portrait, days: 4, status: 'booked', name: 'Priya Shah', email: 'priya@demo.example', phone: '480-555-0117', notes: 'Senior photos, school colours are maroon and gold.' }),
     inPerson: insert({ pkg: pkgs.automotive, days: 9, status: 'booked', method: 'in_person', paid: false, name: 'Marcus Lee', email: 'marcus@demo.example', phone: '623-555-0199', notes: 'Black LS430, freshly detailed.' }),
-    offer: insert({ pkg: offerPkg, days: 11, status: 'prepped', prep: { location: 'Papago Park loop', look: 'Moody, low angles, the car first', who: 'Maya and her Supra' }, name: 'Maya Reyes', email: 'maya@demo.example', phone: '602-555-0164' }),
+    offer: insert({ pkg: offerPkg, days: 11, status: 'prepped', prep: { location: 'Papago Park loop', look: 'Rolling shots, then moody portraits', who: 'Maya and her Supra' }, name: 'Maya Reyes', email: 'maya@demo.example', phone: '602-555-0164' }),
     prepped: insert({ pkg: pkgs.couples, days: 2, status: 'prepped', prep: plan, name: 'Ava & Leo Garcia', email: 'ava@demo.example', phone: '480-555-0102' }),
     shot: insert({ pkg: pkgs.portrait, days: -1, status: 'shot', prep: plan, name: 'Noah Kim', email: 'noah@demo.example', bookedDaysAgo: 14 }),
     editing: insert({ pkg: pkgs.automotive, days: -5, status: 'editing', name: 'Sofia Nguyen', email: 'sofia@demo.example', bookedDaysAgo: 20 }),

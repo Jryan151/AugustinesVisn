@@ -156,14 +156,10 @@ CREATE TABLE IF NOT EXISTS idempotency (
 `;
 
 // What a new site starts with. The photographer changes all of it in Admin.
-// Sized for one photographer shooting on the side: short sessions, a handful of finished photos, prices a friend of a
-// friend says yes to. For reference (2026): Snappr's on-demand US rates start at $89 for a first hour (about 3 edited
-// portraits an hour) and $169 all-inclusive; general guides put amateurs at $25-100 an hour. The summaries only promise
-// what's true every time; the card shows the length, photo count and turnaround next to them.
 const SEED_PACKAGES = [
-  { slug: 'portrait', name: 'Portrait', summary: 'Just you, at one spot you pick. Good for seniors, profile photos or just because.', minutes: 30, photos: 10, turnaround_days: 7, price_cents: 7500, deposit_cents: 2500, sort: 1 },
-  { slug: 'couples', name: 'Couples & Friends', summary: 'You and up to 3 others, at one spot you pick. Relaxed, walk-and-talk style.', minutes: 45, photos: 15, turnaround_days: 7, price_cents: 11000, deposit_cents: 3500, sort: 2 },
-  { slug: 'automotive', name: 'Car', summary: 'One parked car at one spot you pick, plus a few shots of you with it.', minutes: 45, photos: 12, turnaround_days: 7, price_cents: 10000, deposit_cents: 3000, sort: 3 },
+  { slug: 'portrait', name: 'Portrait', summary: 'One person, one location. Headshots, seniors, personal brand.', minutes: 45, photos: 20, turnaround_days: 7, price_cents: 22500, deposit_cents: 7500, sort: 1 },
+  { slug: 'couples', name: 'Couples & Family', summary: 'Up to 6 people, one location, a relaxed walk-and-shoot.', minutes: 60, photos: 35, turnaround_days: 10, price_cents: 32500, deposit_cents: 10000, sort: 2 },
+  { slug: 'automotive', name: 'Automotive', summary: 'One car, rolling and static shots, chosen backdrop at golden hour.', minutes: 75, photos: 30, turnaround_days: 10, price_cents: 35000, deposit_cents: 10000, sort: 3 },
 ];
 const DEFAULT_SETTINGS = {
   availability: {
