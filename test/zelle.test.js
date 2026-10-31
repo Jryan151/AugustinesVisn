@@ -72,7 +72,7 @@ test('booking by Zelle: held 24 hours with a memo reference, and the client is e
   assert.ok(hours > 23.9 && hours <= 24, `held ${hours} hours`);
   const email = outbox(b.id, 'zelle_deposit');
   assert.equal(email.to_addr, b.client_email);
-  assert.match(email.body, /pay@augustines\.example/); assert.match(email.body, new RegExp(b.ref_code)); assert.match(email.body, /\$75/);
+  assert.match(email.body, /pay@augustines\.example/); assert.match(email.body, new RegExp(b.ref_code)); assert.match(email.body, /\$25/);
   const view = (await call('GET', '/api/bookings/' + r.data.token)).data;
   assert.equal(view.status, 'hold'); assert.equal(view.ref, b.ref_code); assert.equal(view.zelle.recipient, 'pay@augustines.example');
   const board = (await admin('GET', '/api/admin/bookings')).data.bookings;
@@ -92,7 +92,7 @@ test('"I’ve sent it": keeps the time for 48 hours and emails the photographer 
   assert.match(email.subject, new RegExp(b.ref_code));
   const code = codeFrom(email.body);
   const d = (await call('GET', '/api/confirm/' + code)).data;
-  assert.deepEqual([d.what, d.done, d.amountCents, d.ref], ['deposit', false, 7500, b.ref_code]);
+  assert.deepEqual([d.what, d.done, d.amountCents, d.ref], ['deposit', false, 2500, b.ref_code]);
   const forged = code.replace(/\.[^.]+$/, '.' + 'x'.repeat(32));
   assert.equal((await call('POST', '/api/confirm/' + forged, {})).status, 404, 'a changed link does nothing');
   const other = code.replace(/^\d+/, String(b.id + 1));
@@ -158,7 +158,7 @@ test('Zelle for the balance: the gallery shows it, "sent" emails the photographe
   assert.equal(g.locked, true); assert.equal(g.zelle.recipient, 'pay@augustines.example'); assert.match(g.ref, /^AV-/);
   await call('POST', `/api/gallery/${b.token}/zelle-sent`, {});
   const email = outbox(b.id, 'admin_zelle_balance');
-  assert.match(email.body, /\$150/);
+  assert.match(email.body, /\$50/);
   const code = codeFrom(email.body);
   assert.match(code, /\.balance\./);
   await call('POST', '/api/confirm/' + code, {});
@@ -187,7 +187,7 @@ test('portfolio: photographer adds, reorders and removes; visitors see it on the
   const firsted = (await admin('POST', `/api/admin/portfolio/${two[1].id}/first`, {})).data.photos;
   assert.equal(firsted[0].id, two[1].id);
   const page = await call('GET', '/api/portfolio/automotive');
-  assert.equal(page.data.photos.length, 2); assert.equal(page.data.package.name, 'Automotive');
+  assert.equal(page.data.photos.length, 2); assert.equal(page.data.package.name, 'Car');
   assert.equal((await call('GET', page.data.photos[0].web)).status, 200);
   await admin('DELETE', `/api/admin/portfolio/${two[0].id}`);
   assert.equal((await call('GET', two[0].web)).status, 404, 'the file is gone too');

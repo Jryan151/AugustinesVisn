@@ -88,7 +88,7 @@ test('client photos: admin only, real images only, private until delivered, then
   const g = await call('GET', '/api/gallery/' + b.token);
   assert.equal(g.data.photos.length, 2);
   // Balance not paid: no clean photo, no download, no zip. (Without ffmpeg there's no proof either: never the clean one instead.)
-  assert.equal(g.data.locked, true); assert.equal(g.data.balanceCents, 15000);
+  assert.equal(g.data.locked, true); assert.equal(g.data.balanceCents, 5000); // the Portrait balance: $75 - $25 deposit
   assert.equal((await call('GET', `/g/${b.token}/${up1.data.photo.id}/original`)).status, 402);
   assert.equal((await call('GET', `/g/${b.token}/all.zip`)).status, 402);
   assert.equal((await call('GET', `/g/${b.token}/${up1.data.photo.id}/web`)).status, 503);
@@ -181,7 +181,7 @@ test('clients: grouped by email, counted from bookings, with private notes', asy
   await bookedClient({ email: 'repeat@example.com', name: 'Rae Peat' });
   const again = (await admin('GET', '/api/admin/clients')).data.clients.find((c) => c.email === 'repeat@example.com');
   assert.equal(again.sessions, 2); assert.equal(again.repeat, true); assert.equal(again.stage, 'upcoming');
-  assert.equal(again.totalCents, 45000);
+  assert.equal(again.totalCents, 15000); // two Portrait sessions at $75
   assert.equal((await admin('PUT', '/api/admin/clients/notes', { email: 'nobody@example.com', notes: 'x' })).status, 404);
   await admin('PUT', '/api/admin/clients/notes', { email: 'repeat@example.com', notes: 'Loves moody edits' });
   assert.equal((await admin('GET', '/api/admin/clients')).data.clients.find((c) => c.email === 'repeat@example.com').notes, 'Loves moody edits');
