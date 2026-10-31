@@ -1,0 +1,83 @@
+{
+  "scenario": "outbox",
+  "clients": 40,
+  "booked": 20,
+  "undoWithinWindow": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "galleryEmailsSentBeforeJobRan": 0,
+  "secondsUntilJobSent": 60,
+  "undoAfterSent": [
+    409,
+    409,
+    409,
+    409,
+    409
+  ],
+  "outboxByKindAndStatus": [
+    {
+      "kind": "admin_new",
+      "status": "sent",
+      "n": 20
+    },
+    {
+      "kind": "admin_zelle_deposit",
+      "status": "sent",
+      "n": 15
+    },
+    {
+      "kind": "cancelled",
+      "status": "cancelled",
+      "n": 5
+    },
+    {
+      "kind": "confirmation",
+      "status": "sent",
+      "n": 20
+    },
+    {
+      "kind": "gallery",
+      "status": "cancelled",
+      "n": 5
+    },
+    {
+      "kind": "gallery",
+      "status": "sent",
+      "n": 5
+    },
+    {
+      "kind": "reminder1",
+      "status": "sent",
+      "n": 2
+    },
+    {
+      "kind": "reminder3",
+      "status": "sent",
+      "n": 3
+    },
+    {
+      "kind": "zelle_deposit",
+      "status": "sent",
+      "n": 15
+    }
+  ],
+  "emailsPrintedByJobLoop": 80,
+  "checks": {
+    "liveDoubleBookings": 0,
+    "outboxDuplicates": 0,
+    "bookingsByStatus": {
+      "delivered": 5,
+      "hold": 15,
+      "prepped": 15
+    }
+  }
+}

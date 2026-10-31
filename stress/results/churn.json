@@ -1,0 +1,25 @@
+{
+  "scenario": "churn",
+  "holds": 120,
+  "slotsFreeWhileHeld": 3,
+  "slotsFreeAfterExpiry": 123,
+  "freedWithinMs": 3.1,
+  "latePayRedirects": {
+    "303": 90
+  },
+  "clientSeesAfterLatePay": {
+    "booked": 60,
+    "needs_refund": 30
+  },
+  "adminRefundEmails": 30,
+  "needsRefundVisibleInAdmin": 30,
+  "checks": {
+    "liveDoubleBookings": 0,
+    "outboxDuplicates": 0,
+    "bookingsByStatus": {
+      "booked": 120,
+      "expired": 30,
+      "needs_refund": 30
+    }
+  }
+}

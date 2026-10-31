@@ -1,0 +1,569 @@
+{
+  "demand_by_day": [
+    {
+      "day": "Sat",
+      "period": "evening",
+      "sessions": 48
+    },
+    {
+      "day": "Sun",
+      "period": "evening",
+      "sessions": 46
+    },
+    {
+      "day": "Thu",
+      "period": "evening",
+      "sessions": 26
+    },
+    {
+      "day": "Fri",
+      "period": "evening",
+      "sessions": 24
+    },
+    {
+      "day": "Mon",
+      "period": "evening",
+      "sessions": 17
+    },
+    {
+      "day": "Sat",
+      "period": "morning",
+      "sessions": 17
+    },
+    {
+      "day": "Tue",
+      "period": "evening",
+      "sessions": 14
+    },
+    {
+      "day": "Sun",
+      "period": "morning",
+      "sessions": 11
+    },
+    {
+      "day": "Wed",
+      "period": "evening",
+      "sessions": 8
+    },
+    {
+      "day": "Thu",
+      "period": "morning",
+      "sessions": 6
+    },
+    {
+      "day": "Mon",
+      "period": "morning",
+      "sessions": 5
+    },
+    {
+      "day": "Fri",
+      "period": "morning",
+      "sessions": 4
+    },
+    {
+      "day": "Tue",
+      "period": "morning",
+      "sessions": 3
+    },
+    {
+      "day": "Wed",
+      "period": "morning",
+      "sessions": 1
+    }
+  ],
+  "demand_by_month": [
+    {
+      "month": "2025-10",
+      "sessions": 2,
+      "revenue": 550
+    },
+    {
+      "month": "2025-11",
+      "sessions": 14,
+      "revenue": 3975
+    },
+    {
+      "month": "2025-12",
+      "sessions": 18,
+      "revenue": 5075
+    },
+    {
+      "month": "2026-01",
+      "sessions": 14,
+      "revenue": 4150
+    },
+    {
+      "month": "2026-02",
+      "sessions": 15,
+      "revenue": 3900
+    },
+    {
+      "month": "2026-03",
+      "sessions": 17,
+      "revenue": 4675
+    },
+    {
+      "month": "2026-04",
+      "sessions": 19,
+      "revenue": 5450
+    },
+    {
+      "month": "2026-05",
+      "sessions": 15,
+      "revenue": 4300
+    },
+    {
+      "month": "2026-06",
+      "sessions": 16,
+      "revenue": 4525
+    },
+    {
+      "month": "2026-07",
+      "sessions": 19,
+      "revenue": 5150
+    },
+    {
+      "month": "2026-08",
+      "sessions": 18,
+      "revenue": 4900
+    },
+    {
+      "month": "2026-09",
+      "sessions": 13,
+      "revenue": 3825
+    },
+    {
+      "month": "2026-10",
+      "sessions": 20,
+      "revenue": 6350
+    },
+    {
+      "month": "2026-11",
+      "sessions": 15,
+      "revenue": 4175
+    },
+    {
+      "month": "2026-12",
+      "sessions": 15,
+      "revenue": 4375
+    }
+  ],
+  "package_mix": [
+    {
+      "package": "Portrait",
+      "sessions": 106,
+      "pct": 46.1,
+      "revenue": 23850
+    },
+    {
+      "package": "Couples & Family",
+      "sessions": 75,
+      "pct": 32.6,
+      "revenue": 24375
+    },
+    {
+      "package": "Automotive",
+      "sessions": 49,
+      "pct": 21.3,
+      "revenue": 17150
+    }
+  ],
+  "lead_time": [
+    {
+      "ahead": "0-2 days",
+      "sessions": 14
+    },
+    {
+      "ahead": "3-6 days",
+      "sessions": 75
+    },
+    {
+      "ahead": "1-2 weeks",
+      "sessions": 48
+    },
+    {
+      "ahead": "2-4 weeks",
+      "sessions": 53
+    },
+    {
+      "ahead": "30+ days",
+      "sessions": 40
+    }
+  ],
+  "sell_out_speed": [
+    {
+      "full_weeks": 36,
+      "avg_days_before_week_it_filled": 1,
+      "weeks_with_any_booking": 61
+    }
+  ],
+  "hold_conversion": [
+    {
+      "pay_method": "card",
+      "holds": 232,
+      "paid": 174,
+      "never_paid": 58,
+      "paid_pct": 75
+    },
+    {
+      "pay_method": "zelle",
+      "holds": 98,
+      "paid": 70,
+      "never_paid": 28,
+      "paid_pct": 71.4
+    }
+  ],
+  "zelle_wait": [
+    {
+      "confirmed": 70,
+      "avg_hours": 11,
+      "slowest_hours": 20
+    }
+  ],
+  "prep_fill": [
+    {
+      "paid_sessions": 230,
+      "prepped": 176,
+      "prepped_pct": 76.5,
+      "avg_hours_after_paying": 34.9,
+      "shoots_in_3_days_with_no_prep": 1
+    }
+  ],
+  "balance_outstanding": [
+    {
+      "locked_galleries": 52,
+      "dollars_waiting": 9975,
+      "avg_days_waiting": 193.5,
+      "waiting_over_2_weeks": 51
+    }
+  ],
+  "balance_paid_how": [
+    {
+      "paid_by": "marked",
+      "n": 57,
+      "avg_days_after_delivery": 6.1
+    },
+    {
+      "paid_by": "online",
+      "n": 47,
+      "avg_days_after_delivery": 5.6
+    },
+    {
+      "paid_by": "zelle",
+      "n": 35,
+      "avg_days_after_delivery": 6
+    }
+  ],
+  "repeat_clients": [
+    {
+      "clients": 181,
+      "repeat_clients": 38,
+      "repeat_pct": 21,
+      "pct_of_sessions_from_repeats": 37.8
+    }
+  ],
+  "repeat_package_moves": [
+    {
+      "first_package": "Portrait",
+      "next_package": "Portrait",
+      "n": 13,
+      "avg_days_between": 119
+    },
+    {
+      "first_package": "Couples & Family",
+      "next_package": "Portrait",
+      "n": 8,
+      "avg_days_between": 47
+    },
+    {
+      "first_package": "Portrait",
+      "next_package": "Couples & Family",
+      "n": 7,
+      "avg_days_between": 87
+    },
+    {
+      "first_package": "Couples & Family",
+      "next_package": "Couples & Family",
+      "n": 6,
+      "avg_days_between": 156
+    },
+    {
+      "first_package": "Portrait",
+      "next_package": "Automotive",
+      "n": 6,
+      "avg_days_between": 218
+    },
+    {
+      "first_package": "Automotive",
+      "next_package": "Couples & Family",
+      "n": 3,
+      "avg_days_between": 52
+    },
+    {
+      "first_package": "Automotive",
+      "next_package": "Portrait",
+      "n": 3,
+      "avg_days_between": 111
+    },
+    {
+      "first_package": "Couples & Family",
+      "next_package": "Automotive",
+      "n": 2,
+      "avg_days_between": 58
+    },
+    {
+      "first_package": "Automotive",
+      "next_package": "Automotive",
+      "n": 1,
+      "avg_days_between": 197
+    }
+  ],
+  "turnaround": [
+    {
+      "package": "Portrait",
+      "promised": 7,
+      "delivered": 91,
+      "avg_days": 7.3,
+      "on_time_pct": 45.1
+    },
+    {
+      "package": "Couples & Family",
+      "promised": 10,
+      "delivered": 61,
+      "avg_days": 10.4,
+      "on_time_pct": 52.5
+    },
+    {
+      "package": "Automotive",
+      "promised": 10,
+      "delivered": 39,
+      "avg_days": 11,
+      "on_time_pct": 41
+    }
+  ],
+  "work_in_progress": [
+    {
+      "status": "booked",
+      "n": 7,
+      "overdue": 0
+    },
+    {
+      "status": "editing",
+      "n": 5,
+      "overdue": 1
+    },
+    {
+      "status": "needs_refund",
+      "n": 1,
+      "overdue": 0
+    },
+    {
+      "status": "prepped",
+      "n": 27,
+      "overdue": 0
+    }
+  ],
+  "delivery_rhythm": [
+    {
+      "day": "Sun",
+      "part": "morning",
+      "galleries": 19
+    },
+    {
+      "day": "Thu",
+      "part": "morning",
+      "galleries": 17
+    },
+    {
+      "day": "Fri",
+      "part": "morning",
+      "galleries": 15
+    },
+    {
+      "day": "Sat",
+      "part": "morning",
+      "galleries": 15
+    },
+    {
+      "day": "Thu",
+      "part": "night",
+      "galleries": 15
+    },
+    {
+      "day": "Sat",
+      "part": "afternoon",
+      "galleries": 11
+    },
+    {
+      "day": "Sun",
+      "part": "afternoon",
+      "galleries": 11
+    },
+    {
+      "day": "Tue",
+      "part": "morning",
+      "galleries": 11
+    }
+  ],
+  "cancellations": [
+    {
+      "cancelled": 13,
+      "pct_of_paid": 5.3,
+      "paid_too_late": 1
+    }
+  ],
+  "payment_mix": [
+    {
+      "what": "deposit",
+      "how": "card",
+      "n": 174
+    },
+    {
+      "what": "deposit",
+      "how": "zelle",
+      "n": 70
+    },
+    {
+      "what": "balance",
+      "how": "unpaid / at the shoot",
+      "n": 52
+    },
+    {
+      "what": "balance",
+      "how": "marked",
+      "n": 57
+    },
+    {
+      "what": "balance",
+      "how": "online",
+      "n": 47
+    },
+    {
+      "what": "balance",
+      "how": "zelle",
+      "n": 35
+    }
+  ],
+  "fee_model": [
+    {
+      "month": "2025-10",
+      "sessions": 2,
+      "fee_uses": 2,
+      "per_use_dollars": 10,
+      "unlimited_dollars": 15,
+      "better_for_him": "per-use is cheaper"
+    },
+    {
+      "month": "2025-11",
+      "sessions": 14,
+      "fee_uses": 13,
+      "per_use_dollars": 65,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2025-12",
+      "sessions": 18,
+      "fee_uses": 17,
+      "per_use_dollars": 85,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-01",
+      "sessions": 14,
+      "fee_uses": 13,
+      "per_use_dollars": 65,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-02",
+      "sessions": 15,
+      "fee_uses": 14,
+      "per_use_dollars": 70,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-03",
+      "sessions": 17,
+      "fee_uses": 15,
+      "per_use_dollars": 75,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-04",
+      "sessions": 19,
+      "fee_uses": 17,
+      "per_use_dollars": 85,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-05",
+      "sessions": 15,
+      "fee_uses": 13,
+      "per_use_dollars": 65,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-06",
+      "sessions": 16,
+      "fee_uses": 15,
+      "per_use_dollars": 75,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-07",
+      "sessions": 19,
+      "fee_uses": 17,
+      "per_use_dollars": 85,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-08",
+      "sessions": 18,
+      "fee_uses": 16,
+      "per_use_dollars": 80,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-09",
+      "sessions": 13,
+      "fee_uses": 13,
+      "per_use_dollars": 65,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-10",
+      "sessions": 20,
+      "fee_uses": 19,
+      "per_use_dollars": 95,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-11",
+      "sessions": 15,
+      "fee_uses": 10,
+      "per_use_dollars": 50,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    },
+    {
+      "month": "2026-12",
+      "sessions": 15,
+      "fee_uses": 9,
+      "per_use_dollars": 45,
+      "unlimited_dollars": 15,
+      "better_for_him": "unlimited is cheaper"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "scenario": "refund",
+  "status": "needs_refund",
+  "attempts": {
+    "cancel": {
+      "status": 400,
+      "message": "This booking is already needs_refund."
+    },
+    "status_booked": {
+      "status": 400,
+      "message": "Can’t move a needs_refund booking to booked here."
+    },
+    "status_shot": {
+      "status": 400,
+      "message": "Can’t move a needs_refund booking to shot here."
+    },
+    "deliver": {
+      "status": 400,
+      "message": "A needs_refund booking can’t be delivered."
+    },
+    "balance_paid": {
+      "status": 400,
+      "message": "A needs_refund booking has no balance to take."
+    }
+  },
+  "stillOnBoardAs": "needs_refund"
+}

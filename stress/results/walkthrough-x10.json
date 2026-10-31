@@ -1,0 +1,57 @@
+{
+  "scenario": "walkthrough",
+  "scale": 10,
+  "viewport": "390x844, CPU slowed 4x",
+  "loginToBoardMs": 1603,
+  "board": {
+    "screensOfScroll": 158.6,
+    "tabBar": {
+      "visibleWidth": 358,
+      "contentWidth": 633,
+      "tabsHiddenOffscreen": [
+        "Packages",
+        "Payments & email"
+      ]
+    },
+    "columns": [
+      {
+        "title": "Needs attention",
+        "cards": 27,
+        "startsAtScreen": 1.2
+      },
+      {
+        "title": "Booked",
+        "cards": 78,
+        "startsAtScreen": 8.2
+      },
+      {
+        "title": "Prepped",
+        "cards": 242,
+        "startsAtScreen": 30.9
+      },
+      {
+        "title": "Shot",
+        "cards": 8,
+        "startsAtScreen": 101.4
+      },
+      {
+        "title": "Editing",
+        "cards": 36,
+        "startsAtScreen": 103.8
+      },
+      {
+        "title": "Delivered",
+        "cards": 160,
+        "startsAtScreen": 114.4
+      }
+    ],
+    "thisWeeksShootsStartAtScreen": 8.2,
+    "domNodes": 12790
+  },
+  "clientsTab": {
+    "ms": 5293,
+    "screens": 273.2,
+    "clients": 1874
+  },
+  "boardRefetchesOnThreeAppSwitches": 3
+}

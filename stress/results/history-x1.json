@@ -1,0 +1,77 @@
+{
+  "scenario": "history",
+  "scale": 1,
+  "seeded": {
+    "file": "/tmp/av-stress-pD1ut7/booking.sqlite",
+    "scale": 1,
+    "bookings": 244,
+    "abandonedHolds": 85,
+    "clients": 269
+  },
+  "adminBookings": {
+    "requests": 15,
+    "p50": 50.4,
+    "p95": 69.8,
+    "p99": 69.8,
+    "max": 69.8,
+    "byStatus": {
+      "delivered": 197,
+      "needs_refund": 1,
+      "cancelled": 2,
+      "editing": 3,
+      "shot": 1,
+      "prepped": 27,
+      "booked": 8
+    },
+    "bytes": 253884,
+    "rows": 239
+  },
+  "adminClients": {
+    "requests": 15,
+    "p50": 43.9,
+    "p95": 63.3,
+    "p99": 63.3,
+    "max": 63.3,
+    "byStatus": {
+      "200": 15
+    },
+    "bytes": 99600,
+    "rows": 194
+  },
+  "availability62Days": {
+    "requests": 15,
+    "p50": 1.9,
+    "p95": 6.5,
+    "p99": 6.5,
+    "max": 6.5,
+    "byStatus": {
+      "200": 15
+    },
+    "bytes": 3946
+  },
+  "jobLoop": {
+    "queueDueMs": [
+      31.6,
+      9.5,
+      12.3,
+      9.8,
+      11.6
+    ],
+    "deliveredRowsScanned": 197
+  },
+  "clientAvailabilityWhileAdminListLoads": {
+    "requests": 40,
+    "p50": 44.1,
+    "p95": 68.3,
+    "p99": 72.5,
+    "max": 72.5,
+    "byStatus": {
+      "200": 40
+    }
+  },
+  "files": {
+    "db": 1277952,
+    "wal": 32992
+  },
+  "peakRssMB": 182
+}

@@ -1,0 +1,25 @@
+{
+  "scenario": "zelle",
+  "calendar": "real (weeklyCap 4, 60 days, 48 h notice)",
+  "bookableSlotsBefore": 75,
+  "zelleHoldsToBlockEverything": 35,
+  "requestsNeeded": 71,
+  "seconds": 0.3,
+  "bookableSlotsAfter": {
+    "portrait": 0,
+    "couples": 0,
+    "automotive": 0
+  },
+  "blockedForHours": 24,
+  "holdsShownInAdminBookingsTab": 35,
+  "emailsQueued": {
+    "zelle_deposit": 35
+  },
+  "checks": {
+    "liveDoubleBookings": 0,
+    "outboxDuplicates": 0,
+    "bookingsByStatus": {
+      "hold": 35
+    }
+  }
+}

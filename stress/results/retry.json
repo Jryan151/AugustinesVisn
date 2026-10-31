@@ -1,0 +1,46 @@
+{
+  "scenario": "retry",
+  "cases": [
+    {
+      "method": "card",
+      "burstStatuses": [
+        200
+      ],
+      "afterStatuses": [
+        200
+      ],
+      "bookingsCreated": 1,
+      "distinctResponses": 1,
+      "changedSlotSameKey": {
+        "status": 200,
+        "sameAnswerAsFirst": true
+      }
+    },
+    {
+      "method": "zelle",
+      "burstStatuses": [
+        200
+      ],
+      "afterStatuses": [
+        200
+      ],
+      "bookingsCreated": 1,
+      "distinctResponses": 1,
+      "changedSlotSameKey": {
+        "status": 200,
+        "sameAnswerAsFirst": true
+      }
+    }
+  ],
+  "payTwice": {
+    "confirmationEmails": 1
+  },
+  "checks": {
+    "liveDoubleBookings": 0,
+    "outboxDuplicates": 0,
+    "bookingsByStatus": {
+      "booked": 1,
+      "hold": 2
+    }
+  }
+}

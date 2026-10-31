@@ -1,0 +1,20 @@
+{
+  "scenario": "login",
+  "trustProxy": true,
+  "sameAddress": [
+    401,
+    401,
+    401,
+    401,
+    401,
+    429,
+    429,
+    429
+  ],
+  "spoofedForwardedFor": {
+    "401": 200
+  },
+  "spoofedCfConnectingIp": {
+    "401": 50
+  }
+}
