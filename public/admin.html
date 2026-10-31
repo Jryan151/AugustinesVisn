@@ -30,16 +30,23 @@
       <div id="app" hidden>
         <div class="tabs" role="tablist">
           <button role="tab" aria-selected="true" data-tab="pipeline">Bookings</button>
+          <button role="tab" aria-selected="false" data-tab="offers">Offers</button>
           <button role="tab" aria-selected="false" data-tab="clients">Clients</button>
-          <button role="tab" aria-selected="false" data-tab="site">Site</button>
-          <button role="tab" aria-selected="false" data-tab="settings">Availability</button>
-          <button role="tab" aria-selected="false" data-tab="packages">Packages</button>
-          <button role="tab" aria-selected="false" data-tab="payments">Payments &amp; email</button>
+          <button role="tab" aria-selected="false" data-tab="setup">Setup</button>
           <button role="tab" aria-selected="false" data-tab="guide">Guide</button>
         </div>
 
         <section id="tab-pipeline" role="tabpanel">
           <div class="board" id="board"></div>
+        </section>
+
+        <section id="tab-offers" role="tabpanel" hidden>
+          <div class="offers-intro">
+            <h2>Offers</h2>
+            <p class="muted">A package made for one client. It never shows on the site: send them the link and they book it from there.</p>
+          </div>
+          <div id="offer-forms"></div>
+          <button class="btn btn-primary" type="button" id="add-offer">Make an offer</button>
         </section>
 
         <section id="tab-clients" role="tabpanel" hidden>
@@ -57,61 +64,71 @@
           <div id="client-list"></div>
         </section>
 
-        <section id="tab-site" role="tabpanel" hidden>
-          <div class="panel">
-            <h2>Background photos</h2>
-            <p class="muted">Behind every page of the site. The first one shows first; the others fade in one after another. Wide (landscape) photos at least 2000 px across look best. Up to <span id="bg-max">6</span>.</p>
-            <div class="thumbs" id="bg-photos"></div>
-            <div class="upload-row">
-              <label class="btn btn-primary" for="bg-input">Add photos</label>
-              <input class="sr-only" id="bg-input" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-              <span class="muted" id="bg-status" role="status"></span>
-            </div>
+        <section id="tab-setup" role="tabpanel" hidden>
+          <div class="filters setup-nav" id="setup-nav" role="group" aria-label="Setup">
+            <button type="button" class="chip" data-setup="settings" aria-pressed="true">Availability</button>
+            <button type="button" class="chip" data-setup="packages" aria-pressed="false">Packages</button>
+            <button type="button" class="chip" data-setup="site" aria-pressed="false">Site photos</button>
+            <button type="button" class="chip" data-setup="payments" aria-pressed="false">Payments &amp; email</button>
           </div>
-        </section>
-
-        <section id="tab-settings" role="tabpanel" hidden>
-          <form class="panel narrow" id="settings-form">
-            <h2>When people can book</h2>
-            <div class="field"><label>Sunrise sessions on</label><div class="weekdays" id="morning-days"></div></div>
-            <div class="field"><label>Sunset sessions on</label><div class="weekdays" id="evening-days"></div></div>
-            <div class="row">
-              <div class="field"><label for="weeklyCap">Shoots per week <span class="hint">(what you can edit on time)</span></label><input id="weeklyCap" type="number" min="1" max="50" inputmode="numeric"></div>
-              <div class="field"><label for="minNoticeHours">Notice needed <span class="hint">(hours)</span></label><input id="minNoticeHours" type="number" min="0" max="720" inputmode="numeric"></div>
-              <div class="field"><label for="maxDaysAhead">Book up to <span class="hint">(days ahead)</span></label><input id="maxDaysAhead" type="number" min="1" max="365" inputmode="numeric"></div>
+          <section id="setup-settings" class="setup-part" aria-label="Availability">
+            <form class="panel narrow" id="settings-form">
+              <h2>When people can book</h2>
+              <div class="field"><label>Sunrise sessions on</label><div class="weekdays" id="morning-days"></div></div>
+              <div class="field"><label>Sunset sessions on</label><div class="weekdays" id="evening-days"></div></div>
+              <div class="row">
+                <div class="field"><label for="weeklyCap">Shoots per week <span class="hint">(what you can edit on time)</span></label><input id="weeklyCap" type="number" min="1" max="50" inputmode="numeric"></div>
+                <div class="field"><label for="minNoticeHours">Notice needed <span class="hint">(hours)</span></label><input id="minNoticeHours" type="number" min="0" max="720" inputmode="numeric"></div>
+                <div class="field"><label for="maxDaysAhead">Book up to <span class="hint">(days ahead)</span></label><input id="maxDaysAhead" type="number" min="1" max="365" inputmode="numeric"></div>
+              </div>
+              <div class="row">
+                <div class="field"><label for="morningLeadMinutes">Sunrise sessions start <span class="hint">(minutes before sunrise)</span></label><input id="morningLeadMinutes" type="number" min="0" max="90" inputmode="numeric"></div>
+                <div class="field"><label for="eveningTailMinutes">Sunset sessions end <span class="hint">(minutes after sunset)</span></label><input id="eveningTailMinutes" type="number" min="0" max="90" inputmode="numeric"></div>
+              </div>
+              <div class="field"><label for="blockedDates">Days off <span class="hint">(one date per line, like 2026-12-25)</span></label><textarea id="blockedDates"></textarea></div>
+              <div class="field"><label for="terms">Booking terms <span class="hint">(clients agree to these before paying)</span></label><textarea id="terms" rows="5"></textarea></div>
+              <button class="btn btn-primary" type="submit">Save</button>
+            </form>
+          </section>
+          <section id="setup-packages" class="setup-part" aria-label="Packages" hidden>
+            <div id="package-forms"></div>
+            <button class="btn" type="button" id="add-package">Add a package</button>
+          </section>
+          <section id="setup-site" class="setup-part" aria-label="Site photos" hidden>
+            <div class="panel">
+              <h2>Background photos</h2>
+              <p class="muted">Behind every page of the site. The first one shows first; the others fade in one after another. Wide (landscape) photos at least 2000 px across look best. Up to <span id="bg-max">6</span>.</p>
+              <div class="thumbs" id="bg-photos"></div>
+              <div class="upload-row">
+                <label class="btn btn-primary" for="bg-input">Add photos</label>
+                <input class="sr-only" id="bg-input" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+                <span class="muted" id="bg-status" role="status"></span>
+              </div>
             </div>
-            <div class="row">
-              <div class="field"><label for="morningLeadMinutes">Sunrise sessions start <span class="hint">(minutes before sunrise)</span></label><input id="morningLeadMinutes" type="number" min="0" max="90" inputmode="numeric"></div>
-              <div class="field"><label for="eveningTailMinutes">Sunset sessions end <span class="hint">(minutes after sunset)</span></label><input id="eveningTailMinutes" type="number" min="0" max="90" inputmode="numeric"></div>
-            </div>
-            <div class="field"><label for="blockedDates">Days off <span class="hint">(one date per line, like 2026-12-25)</span></label><textarea id="blockedDates"></textarea></div>
-            <div class="field"><label for="terms">Booking terms <span class="hint">(clients agree to these before paying)</span></label><textarea id="terms" rows="5"></textarea></div>
-            <button class="btn btn-primary" type="submit">Save</button>
-          </form>
-        </section>
+          </section>
+          <section id="setup-payments" class="setup-part" aria-label="Payments and email" hidden>
+            <form class="panel narrow" id="zelle-form">
+              <h2>Zelle</h2>
+              <p class="muted" id="pay-summary"></p>
+              <label class="check"><input type="checkbox" id="z-enabled"> <span>Clients can pay the deposit and balance by Zelle (no fees)</span></label>
+              <div class="field"><label for="z-recipient">Your Zelle email or phone <span class="hint">(what clients send to)</span></label><input id="z-recipient" type="text" autocomplete="off"></div>
+              <div class="field"><label for="z-name">Name clients will see <span class="hint">(as your bank shows it, so they know it’s you)</span></label><input id="z-name" type="text"></div>
+              <div class="field"><label for="z-hold">Hold a time while the deposit arrives <span class="hint">(hours)</span></label><input id="z-hold" type="number" min="1" max="168" inputmode="numeric"></div>
+              <div class="field"><label>QR code <span class="hint">(optional: from your bank app’s Zelle screen, as a screenshot)</span></label>
+                <div class="z-admin-qr" id="z-qr"></div>
+                <div class="upload-row"><label class="btn btn-small" for="z-qr-input">Upload QR code</label><input class="sr-only" id="z-qr-input" type="file" accept="image/jpeg,image/png,image/webp"></div>
+              </div>
+              <button class="btn btn-primary" type="submit">Save</button>
+              <p class="muted fine">When a client taps “I’ve sent it”, you get an email with their memo and a Confirm link. Check your bank app and tap Confirm, there or on the Bookings board.</p>
+              <p class="fine" id="card-status"></p>
+            </form>
 
-        <section id="tab-payments" role="tabpanel" hidden>
-          <form class="panel narrow" id="zelle-form">
-            <h2>Zelle</h2>
-            <p class="muted" id="pay-summary"></p>
-            <label class="check"><input type="checkbox" id="z-enabled"> <span>Clients can pay the deposit and balance by Zelle (no fees)</span></label>
-            <div class="field"><label for="z-recipient">Your Zelle email or phone <span class="hint">(what clients send to)</span></label><input id="z-recipient" type="text" autocomplete="off"></div>
-            <div class="field"><label for="z-name">Name clients will see <span class="hint">(as your bank shows it, so they know it’s you)</span></label><input id="z-name" type="text"></div>
-            <div class="field"><label for="z-hold">Hold a time while the deposit arrives <span class="hint">(hours)</span></label><input id="z-hold" type="number" min="1" max="168" inputmode="numeric"></div>
-            <div class="field"><label>QR code <span class="hint">(optional: from your bank app’s Zelle screen, as a screenshot)</span></label>
-              <div class="z-admin-qr" id="z-qr"></div>
-              <div class="upload-row"><label class="btn btn-small" for="z-qr-input">Upload QR code</label><input class="sr-only" id="z-qr-input" type="file" accept="image/jpeg,image/png,image/webp"></div>
-            </div>
-            <button class="btn btn-primary" type="submit">Save</button>
-            <p class="muted fine">When a client taps “I’ve sent it”, you get an email with their memo and a Confirm link. Check your bank app and tap Confirm, there or on the Bookings board.</p>
-            <p class="fine" id="card-status"></p>
-          </form>
-
-          <section class="panel narrow">
-            <h2>Email</h2>
-            <dl class="summary" id="email-status"></dl>
-            <div id="email-failed"></div>
-            <button type="button" class="btn" id="email-test">Send me a test email</button>
+            <section class="panel narrow">
+              <h2>Email</h2>
+              <dl class="summary" id="email-status"></dl>
+              <div id="email-failed"></div>
+              <button type="button" class="btn" id="email-test">Send me a test email</button>
+            </section>
           </section>
         </section>
 
@@ -138,18 +155,21 @@
               <summary>The tabs</summary>
               <dl class="guide-list">
                 <dt>Bookings</dt><dd>Everything in progress, one column per stage. Every action happens here.</dd>
+                <dt>Offers</dt><dd>Custom packages for one client, sent as a link.</dd>
                 <dt>Clients</dt><dd>Everyone who has booked: their sessions, totals, and private notes only you see. Search by name, email, phone or package.</dd>
-                <dt>Site</dt><dd>The background photos behind every page.</dd>
-                <dt>Availability</dt><dd>When people can book: which days have sunrise or sunset sessions, shoots per week, notice needed, how far ahead, days off, and the booking terms.</dd>
-                <dt>Packages</dt><dd>What’s for sale on the site: price, deposit, length, photos, turnaround, card photo and example shots. Also your <b>Offers</b>.</dd>
-                <dt>Payments &amp; email</dt><dd>Zelle details, whether card payments are on, and a test email to check that emails arrive.</dd>
+                <dt>Setup</dt><dd>The things you set once and change now and then, one at a time:
+                  <b>Availability</b> (which days have sunrise or sunset sessions, shoots per week, notice, how far ahead, days off, booking terms),
+                  <b>Packages</b> (what’s for sale on the site),
+                  <b>Site photos</b> (the backgrounds behind every page), and
+                  <b>Payments &amp; email</b> (Zelle details, card status, a test email).</dd>
+                <dt>Guide</dt><dd>This page.</dd>
               </dl>
             </details>
 
             <details class="panel">
               <summary>Offers: a custom package for one client</summary>
               <ol class="guide-steps">
-                <li>Go to <i>Packages</i> and tap <b>Make an offer</b> at the bottom.</li>
+                <li>Go to <i>Offers</i> and tap <b>Make an offer</b>.</li>
                 <li>Fill in the title, a line or two about the shoot, the price and the deposit. Tap <i>Save</i>.</li>
                 <li>Tap <b>Send link</b> and send it in your DM or text.</li>
                 <li>The client opens it, taps <i>Pick a time</i> and books it like any package.</li>
@@ -175,23 +195,13 @@
               <summary>Good to know</summary>
               <ul class="guide-steps">
                 <li><b>No double bookings.</b> Two people can never get the same time.</li>
-                <li><b>Holds:</b> a card payment holds the time for 30 minutes. A Zelle deposit holds it for the hours set under <i>Payments &amp; email</i>.</li>
+                <li><b>Holds:</b> a card payment holds the time for 30 minutes. A Zelle deposit holds it for the hours set under <i>Setup › Payments &amp; email</i>.</li>
                 <li><b>Shoots per week</b> counts held times as well as paid ones.</li>
                 <li><b>Needs attention:</b> someone paid after their hold ran out and the time had gone to someone else. Refund their deposit and offer them another date.</li>
                 <li><b>Client links are private.</b> Each client’s booking and gallery pages work only from the link in their emails.</li>
               </ul>
             </details>
           </div>
-        </section>
-        <section id="tab-packages" role="tabpanel" hidden>
-          <div id="package-forms"></div>
-          <button class="btn" type="button" id="add-package">Add a package</button>
-          <div class="offers-intro">
-            <h2>Offers</h2>
-            <p class="muted">A package made for one client. It never shows on the site: send them the link and they book it from there.</p>
-          </div>
-          <div id="offer-forms"></div>
-          <button class="btn btn-primary" type="button" id="add-offer">Make an offer</button>
         </section>
       </div>
     </div>

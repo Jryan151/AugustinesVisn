@@ -6,7 +6,7 @@
      morning  starts a little before sunrise (morningLeadMinutes)
      evening  ends a little after sunset (eveningTailMinutes), so its start depends on the package's length
    So a day has at most two times, far apart. That's the travel buffer, built in: nobody can book back-to-back shoots
-   across town. On top of that, the photographer's rules (Admin › Settings):
+   across town. On top of that, the photographer's rules (Admin › Setup › Availability):
      - which weekdays offer morning and which offer evening
      - blocked dates (holidays, other work)
      - minimum notice and how far ahead people can book

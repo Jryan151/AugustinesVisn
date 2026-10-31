@@ -2,11 +2,13 @@
    admin.js — the photographer's side.
 
      Bookings      the pipeline. Each client's Photos window: upload the finished photos, check them, send the gallery.
+     Offers        a package made for one client, never listed on the site, sent as a link (/offer/<slug>) they book from.
      Clients       everyone who has booked: their sessions, totals, stage, and a private note.
-     Site          the background photos behind every page.
-     Availability  when people can book, and the booking terms.
-     Packages      prices, lengths, and the photo behind each package's card. Offers: a package made for one client,
-                   never listed on the site, sent as a link (/offer/<slug>) that they book from.
+     Setup         the set-once screens, one at a time:
+                     Availability  when people can book, and the booking terms
+                     Packages      prices, lengths, and the photo behind each package's card
+                     Site photos   the background photos behind every page
+                     Payments      Zelle, card status, and the email check
      Guide         how the site works, in plain words (static: nothing to load).
 
    Moves happen at once with an Undo toast instead of "Are you sure?". Anything that emails the client (send gallery,
@@ -49,12 +51,25 @@
   }
 
   /* ---------- tabs ---------- */
-  const loaders = { pipeline: () => loadBoard(), clients: () => loadClients(), site: () => loadSite(), payments: () => loadPayments() };
+  // Ordered by how often they're used: daily work first, set-once screens grouped under Setup.
+  const TABS = ['pipeline', 'offers', 'clients', 'setup', 'guide'];
+  const SETUP = ['settings', 'packages', 'site', 'payments'];
+  let setupPart = 'settings';
+  const loaders = { pipeline: () => loadBoard(), clients: () => loadClients(), setup: () => showSetup(setupPart) };
+  // Availability, packages and offers load with the page (loadSettings); the site photos and payments load when opened.
+  const setupLoaders = { site: () => loadSite(), payments: () => loadPayments() };
   document.querySelectorAll('[data-tab]').forEach((t) => t.addEventListener('click', () => {
     document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
-    for (const name of ['pipeline', 'clients', 'site', 'settings', 'packages', 'payments', 'guide']) $('tab-' + name).hidden = name !== t.dataset.tab;
+    for (const name of TABS) $('tab-' + name).hidden = name !== t.dataset.tab;
     if (loaders[t.dataset.tab]) loaders[t.dataset.tab]();
   }));
+  function showSetup(name) {
+    setupPart = name;
+    document.querySelectorAll('[data-setup]').forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.setup === name)));
+    for (const part of SETUP) $('setup-' + part).hidden = part !== name;
+    if (setupLoaders[name]) setupLoaders[name]();
+  }
+  $('setup-nav').addEventListener('click', (e) => { const c = e.target.closest('[data-setup]'); if (c) showSetup(c.dataset.setup); });
   addEventListener('focus', () => { if (!$('app').hidden && !$('tab-pipeline').hidden && !$('photos').open) loadBoard(); });
 
   /* ---------- one photo upload (shared by gallery, site and package uploads) ---------- */
@@ -426,12 +441,14 @@
      Packages
      ====================================================================== */
   const dollars = (c) => (c / 100).toFixed(c % 100 ? 2 : 0);
+  // Packages (under Setup) and offers (their own tab) use the same form, so the same handlers serve both.
+  const forBoth = (ev, fn) => { $('setup-packages').addEventListener(ev, fn); $('tab-offers').addEventListener(ev, fn); };
   // The packages on the site (in their order), and the offers (each reached only by its link).
   const shelf = () => packages.filter((p) => !p.offer);
   function renderPackages() {
     $('package-forms').innerHTML = shelf().map(packageForm).join('');
     $('offer-forms').innerHTML = packages.filter((p) => p.offer).map(packageForm).join('');
-    applyFrames($('tab-packages'), packages.filter((p) => p.image).map((p) => p.image));
+    applyFrames($('setup-packages'), packages.filter((p) => p.image).map((p) => p.image));
     loadPortfolios();
   }
   function packageForm(p) {
@@ -502,7 +519,7 @@
   function loadPortfolios() {
     for (const p of packages) if (p.id && p.portfolio_count) api(`/api/admin/packages/${p.id}/portfolio`).then((r) => renderPortfolio(p.id, r.photos)).catch(handle);
   }
-  $('tab-packages').addEventListener('submit', async (e) => {
+  forBoth('submit', async (e) => {
     e.preventDefault();
     const form = e.target; const id = form.dataset.id;
     const v = (n) => form.elements[n].value.trim();
@@ -519,11 +536,11 @@
     } catch (err) { handle(err); }
   });
   // The form's heading follows the title as it's typed, so it's clear which field renames the package.
-  $('tab-packages').addEventListener('input', (e) => {
+  forBoth('input', (e) => {
     if (e.target.name !== 'name') return;
     e.target.form.querySelector('h2').textContent = e.target.value.trim() || (e.target.form.dataset.offer ? 'New offer' : 'New package');
   });
-  $('tab-packages').addEventListener('change', async (e) => {
+  forBoth('change', async (e) => {
     const pf = e.target.closest('[data-pf-input]');
     if (pf) {
       const id = pf.dataset.pfInput; const files = [...pf.files]; pf.value = '';
@@ -547,7 +564,7 @@
     try { await uploadOne(`/api/admin/packages/${id}/image`, file); toast('Card photo saved. It’s live on the site.'); loadSettings(); }
     catch (err) { if (err.status === 401) return handle(err); status.textContent = err.message; }
   });
-  $('tab-packages').addEventListener('click', async (e) => {
+  forBoth('click', async (e) => {
     const pfRm = e.target.closest('[data-pf-remove]'); const pfFirst = e.target.closest('[data-pf-first]');
     if (pfRm || pfFirst) {
       e.preventDefault();

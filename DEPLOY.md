@@ -50,12 +50,12 @@ Open `https://book.yourdomain.com`: the site. `https://book.yourdomain.com/admin
    ADMIN_EMAIL=you@yourmail.com        # Zelle "check your bank" notices and new bookings go here
    sudo runuser -u booking -- pm2 restart booking --update-env
    ```
-5. **Admin → Payments & email → Send me a test email.** It says where it went, or exactly why it didn't.
+5. **Admin → Setup → Payments & email → Send me a test email.** It says where it went, or exactly why it didn't.
 
 Emails made before the key was set were only written to the log (`pm2 logs booking`); they aren't re-sent.
 
 ## 5b. Zelle (no fees)
-**Admin → Payments & email → Zelle**: tick it on, enter the email or phone your Zelle is registered to and the name
+**Admin → Setup → Payments & email → Zelle**: tick it on, enter the email or phone your Zelle is registered to and the name
 clients will see, and optionally upload your Zelle QR code (a screenshot from your bank app's Zelle screen). Without a
 Stripe key, Zelle is the only way to pay, and booking is open.
 

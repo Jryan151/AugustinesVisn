@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   sitemedia.js — the photos that dress the site, uploaded in Admin › Site and Admin › Packages.
+   sitemedia.js — the photos that dress the site, uploaded in Admin › Setup › Site photos and Packages.
 
    - Site background: up to MAX_BG photos behind the public pages. The first shows at once; the rest fade in one
      after another with a slow drift (common.js). With "reduce motion" or data saver, only the first, still.
@@ -124,7 +124,7 @@ function removePackageImage(id) {
   if (old) media.removeFiles(config.mediaDir, old);
 }
 
-/* ---------- package portfolios: example shots per package (Admin › Packages), shown on /portfolio/<slug> ---------- */
+/* ---------- package portfolios: example shots per package (Admin › Setup › Packages), shown on /portfolio/<slug> ---------- */
 const MAX_PORTFOLIO = 60;
 
 function portfolio(packageId) {

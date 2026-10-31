@@ -245,7 +245,7 @@ footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; }
 /* ---------- admin ---------- */
 .admin { padding: 28px 0 72px; }
 .tabs { display: flex; gap: 4px; margin: 20px 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
-.tabs button { min-height: 44px; padding: 0 16px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); font: 600 15px var(--font-body); cursor: pointer; white-space: nowrap; }
+.tabs button { flex: 1 1 auto; min-height: 44px; padding: 0 10px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); font: 600 15px var(--font-body); cursor: pointer; white-space: nowrap; }
 .tabs button[aria-selected="true"] { color: var(--text); border-color: var(--accent); }
 .board { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); align-items: start; }
 .col h3 { font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -386,7 +386,7 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 .portfolio-head p { margin: 0; }
 /* An offer's page: what it's for, in the photographer's words, then what's paid when. */
 .portfolio-head .offer-summary { margin: 12px 0 6px; max-width: 46ch; font-size: 1.05rem; text-wrap: pretty; }
-.offers-intro { margin: 32px 0 12px; }
+.offers-intro { margin: 0 0 12px; }
 .offers-intro h2 { margin: 0 0 4px; }
 .offer-link { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .eyebrow { font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
@@ -487,3 +487,11 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 .guide-list dt { font-weight: 600; margin-top: 12px; }
 .guide-list dd { margin: 2px 0 0; color: var(--muted); text-wrap: pretty; }
 .guide p { text-wrap: pretty; }
+
+/* Admin › Setup: one set-once screen at a time, picked with these chips. */
+.setup-nav { margin: 0 0 16px; }
+/* Small phones: all five admin tabs on screen, no sideways scrolling (the tap target stays 44 px tall). */
+@media (max-width: 400px) {
+  .tabs { gap: 0; }
+  .tabs button { padding: 0 6px; font-size: 14px; }
+}

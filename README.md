@@ -32,14 +32,18 @@ npm test
   no downloads. The client pays the balance right there (Stripe), or the photographer taps **Mark paid** (cash, in
   person; Undo works until the email leaves). Either way the clean, full-quality photos unlock, with Download and
   Download all, and the client gets an email. Packages with no balance are never locked.
+- **Offers**: a package made for one client, never listed on the site. **Send link** shares `/offer/<link>`; they
+  see what's included and what's paid when, tap Pick a time, and book it like any package.
 - **Clients**: everyone who has booked, grouped by email: sessions, packages, total, stage (upcoming, editing,
   delivered), repeat clients, and a private note per client.
-- **Site**: up to 6 background photos behind every page, fading slowly from one to the next.
-- **Availability**: sunrise/sunset days of the week, shoots per week (the cap that protects your turnaround),
-  notice, how far ahead, days off, booking terms.
-- **Packages**: prices, deposits, lengths, order (↑ ↓), the photo behind each card, and a **portfolio** of example
-  shots (visitors reach it from "See portfolio" on the card's photo: `/portfolio/<package>`).
-- **Payments & email**: Zelle details (and QR code), whether card is on, email status and "Send me a test email".
+- **Setup**: the set-once screens, one at a time:
+  - **Availability**: sunrise/sunset days of the week, shoots per week (the cap that protects your turnaround),
+    notice, how far ahead, days off, booking terms.
+  - **Packages**: prices, deposits, lengths, order (↑ ↓), the photo behind each card, and a **portfolio** of example
+    shots (visitors reach it from "See portfolio" on the card's photo: `/portfolio/<package>`).
+  - **Site photos**: up to 6 background photos behind every page, fading slowly from one to the next.
+  - **Payments & email**: Zelle details (and QR code), whether card is on, email status and "Send me a test email".
+- **Guide**: how the site works, in plain words.
 
 ## Things that can't go wrong
 - **No double bookings.** The time check and the hold happen together, and the database allows one live booking per time.
@@ -53,7 +57,7 @@ npm test
 2. Stripe: `STRIPE_SECRET_KEY`, then add a webhook to `https://<your site>/api/stripe/webhook` for
    `checkout.session.completed` and put its signing secret in `STRIPE_WEBHOOK_SECRET`.
 3. Email: `RESEND_API_KEY` and `MAIL_FROM` (a verified domain). Without them emails print to the console.
-4. Background and package photos: upload them in Admin › Site and Admin › Packages.
+4. Background and package photos: upload them in Admin › Setup › Site photos and Packages.
 5. Back up `data/backups/` (a copy is made every day).
 
 On the content generator server: see DEPLOY.md (one script, separate from the generator).
