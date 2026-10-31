@@ -384,6 +384,11 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 .portfolio-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
 .portfolio-head h1 { margin: 0 0 4px; font-size: clamp(2.4rem, 7vw, 4rem); text-transform: uppercase; letter-spacing: 0.04em; }
 .portfolio-head p { margin: 0; }
+/* An offer's page: what it's for, in the photographer's words, then what's paid when. */
+.portfolio-head .offer-summary { margin: 12px 0 6px; max-width: 46ch; font-size: 1.05rem; text-wrap: pretty; }
+.offers-intro { margin: 32px 0 12px; }
+.offers-intro h2 { margin: 0 0 4px; }
+.offer-link { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .eyebrow { font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
 .grid .view { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
 .viewer { width: 100vw; height: 100svh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: rgba(4, 4, 6, 0.96); touch-action: pan-y; }

@@ -5,7 +5,8 @@
      Clients       everyone who has booked: their sessions, totals, stage, and a private note.
      Site          the background photos behind every page.
      Availability  when people can book, and the booking terms.
-     Packages      prices, lengths, and the photo behind each package's card.
+     Packages      prices, lengths, and the photo behind each package's card. Offers: a package made for one client,
+                   never listed on the site, sent as a link (/offer/<slug>) that they book from.
 
    Moves happen at once with an Undo toast instead of "Are you sure?". Anything that emails the client (send gallery,
    cancel) waits 10 seconds first, so Undo can still take it back. Removing a site photo can't be undone, so that one
@@ -424,15 +425,19 @@
      Packages
      ====================================================================== */
   const dollars = (c) => (c / 100).toFixed(c % 100 ? 2 : 0);
+  // The packages on the site (in their order), and the offers (each reached only by its link).
+  const shelf = () => packages.filter((p) => !p.offer);
   function renderPackages() {
-    $('package-forms').innerHTML = packages.map(packageForm).join('');
-    applyFrames($('package-forms'), packages.filter((p) => p.image).map((p) => p.image));
+    $('package-forms').innerHTML = shelf().map(packageForm).join('');
+    $('offer-forms').innerHTML = packages.filter((p) => p.offer).map(packageForm).join('');
+    applyFrames($('tab-packages'), packages.filter((p) => p.image).map((p) => p.image));
     loadPortfolios();
   }
   function packageForm(p) {
     const id = p.id || 'new';
     const f = (name, label, value, type = 'text', extra = '') => `<div class="field${extra}"><label for="${name}-${id}">${label}</label><input id="${name}-${id}" name="${name}" type="${type}" value="${esc(value)}"${type === 'number' ? ' inputmode="decimal" step="any" min="0"' : ''}></div>`;
-    const image = p.id ? `<div class="pkg-photo wide">
+    // Offers never get a card on the site, so they have no card photo.
+    const image = p.offer ? '' : p.id ? `<div class="pkg-photo wide">
         ${p.image ? `<div class="crop pkg-crop"><img src="${esc(p.image.thumb)}" data-key="${esc(p.image.key)}" class="framed" width="${p.image.width}" height="${p.image.height}" alt="${esc(p.name)} card photo" loading="lazy"></div>` : '<div class="pkg-photo-empty muted">No photo: the card is plain glass.</div>'}
         <div class="upload-row">
           <label class="btn btn-small" for="img-${id}">${p.image ? 'Replace photo' : 'Add card photo'}</label>
@@ -442,19 +447,23 @@
           <span class="muted" data-pkg-status="${p.id}" role="status"></span>
         </div>
       </div>` : '<p class="muted wide">Save the package first, then add its card photo.</p>';
-    const i = packages.findIndex((x) => x.id === p.id);
-    const move = p.id ? `<div class="pkg-move" role="group" aria-label="Order on the site">
-        <span class="muted num">${i + 1} of ${packages.length}</span>
+    const list = shelf();
+    const i = list.findIndex((x) => x.id === p.id);
+    const move = p.offer ? (p.id ? `<div class="offer-link">
+        <button type="button" class="btn btn-small btn-primary" data-send="${esc(p.slug)}" data-name="${esc(p.name)}">Send link</button>
+        <a class="btn btn-small btn-text" href="/offer/${esc(p.slug)}" target="_blank" rel="noopener">View</a>
+      </div>` : '<span class="muted">Save it to get its link.</span>') : p.id ? `<div class="pkg-move" role="group" aria-label="Order on the site">
+        <span class="muted num">${i + 1} of ${list.length}</span>
         <button type="button" class="btn btn-small" data-move="-1" data-id="${p.id}" aria-label="Move ${esc(p.name)} earlier"${i === 0 ? ' disabled' : ''}>↑</button>
-        <button type="button" class="btn btn-small" data-move="1" data-id="${p.id}" aria-label="Move ${esc(p.name)} later"${i === packages.length - 1 ? ' disabled' : ''}>↓</button>
+        <button type="button" class="btn btn-small" data-move="1" data-id="${p.id}" aria-label="Move ${esc(p.name)} later"${i === list.length - 1 ? ' disabled' : ''}>↓</button>
       </div>` : '<span class="muted">Goes last; move it once saved.</span>';
-    return `<form class="panel pkg-form" data-id="${p.id || ''}">
-      <div class="pkg-head"><h2>${esc(p.name || 'New package')}</h2>${move}</div>
+    return `<form class="panel pkg-form" data-id="${p.id || ''}"${p.offer ? ' data-offer="1"' : ''}>
+      <div class="pkg-head"><h2>${esc(p.name || (p.offer ? 'New offer' : 'New package'))}</h2>${move}</div>
       <div class="pkg-edit">
         ${image}
-        ${f('name', 'Title <span class="hint">(shown on the package card)</span>', p.name || '', 'text', ' wide')}
-        ${f('slug', 'Link name <span class="hint">(/book?p=…)</span>', p.slug || '')}
-        ${f('summary', 'One-line summary', p.summary || '', 'text', ' wide')}
+        ${f('name', p.offer ? 'Title <span class="hint">(the client sees this)</span>' : 'Title <span class="hint">(shown on the package card)</span>', p.name || '', 'text', ' wide')}
+        ${p.offer ? '' : f('slug', 'Link name <span class="hint">(/book?p=…)</span>', p.slug || '')}
+        ${f('summary', p.offer ? 'What it’s for <span class="hint">(a line or two, in your words)</span>' : 'One-line summary', p.summary || '', 'text', ' wide')}
         ${f('price', 'Price ($)', p.price_cents != null ? dollars(p.price_cents) : '', 'number')}
         ${f('deposit', 'Deposit ($)', p.deposit_cents != null ? dollars(p.deposit_cents) : '', 'number')}
         ${f('minutes', 'Length (minutes)', p.minutes || 60, 'number')}
@@ -465,12 +474,12 @@
       <button class="btn btn-primary" type="submit">Save</button>
       ${p.id ? `<section class="portfolio-admin" aria-labelledby="pf-title-${p.id}">
         <h3 id="pf-title-${p.id}">Portfolio <span class="hint num" data-pf-count="${p.id}">${p.portfolio_count || 0} photos</span></h3>
-        <p class="muted">Example shots for this package. Visitors reach them from “See portfolio” on the package’s photo.${p.image ? '' : ' (Add a card photo too: the button sits on it.)'}</p>
+        <p class="muted">${p.offer ? 'Example shots, shown on the offer’s page.' : `Example shots for this package. Visitors reach them from “See portfolio” on the package’s photo.${p.image ? '' : ' (Add a card photo too: the button sits on it.)'}`}</p>
         <div class="thumbs" data-pf-grid="${p.id}"></div>
         <div class="upload-row">
           <label class="btn btn-small" for="pf-${p.id}">Add portfolio photos</label>
           <input class="sr-only" id="pf-${p.id}" type="file" accept="image/jpeg,image/png,image/webp" multiple data-pf-input="${p.id}">
-          ${p.portfolio_count ? `<a class="btn btn-small btn-text" href="/portfolio/${esc(p.slug)}" target="_blank" rel="noopener">View page</a>` : ''}
+          ${p.portfolio_count && !p.offer ? `<a class="btn btn-small btn-text" href="/portfolio/${esc(p.slug)}" target="_blank" rel="noopener">View page</a>` : ''}
           <span class="muted" data-pf-status="${p.id}" role="status"></span>
         </div>
       </section>` : ''}
@@ -492,28 +501,28 @@
   function loadPortfolios() {
     for (const p of packages) if (p.id && p.portfolio_count) api(`/api/admin/packages/${p.id}/portfolio`).then((r) => renderPortfolio(p.id, r.photos)).catch(handle);
   }
-  $('package-forms').addEventListener('submit', async (e) => {
+  $('tab-packages').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target; const id = form.dataset.id;
     const v = (n) => form.elements[n].value.trim();
     const body = {
-      name: v('name'), slug: v('slug'), summary: v('summary'),
+      name: v('name'), slug: form.elements.slug ? v('slug') : '', summary: v('summary'), offer: form.dataset.offer === '1',
       price_cents: Math.round(Number(v('price')) * 100), deposit_cents: Math.round(Number(v('deposit')) * 100),
       minutes: Number(v('minutes')), photos: Number(v('photos')), turnaround_days: Number(v('turnaround_days')),
       active: form.elements.active.checked,
     };
     try {
       await api(id ? `/api/admin/packages/${id}` : '/api/admin/packages', { method: id ? 'PUT' : 'POST', body });
-      toast('Package saved.');
+      toast(form.dataset.offer ? (id ? 'Offer saved. Its link stays the same.' : 'Offer saved. Tap Send link to share it.') : 'Package saved.');
       loadSettings();
     } catch (err) { handle(err); }
   });
   // The form's heading follows the title as it's typed, so it's clear which field renames the package.
-  $('package-forms').addEventListener('input', (e) => {
+  $('tab-packages').addEventListener('input', (e) => {
     if (e.target.name !== 'name') return;
-    e.target.form.querySelector('h2').textContent = e.target.value.trim() || 'New package';
+    e.target.form.querySelector('h2').textContent = e.target.value.trim() || (e.target.form.dataset.offer ? 'New offer' : 'New package');
   });
-  $('package-forms').addEventListener('change', async (e) => {
+  $('tab-packages').addEventListener('change', async (e) => {
     const pf = e.target.closest('[data-pf-input]');
     if (pf) {
       const id = pf.dataset.pfInput; const files = [...pf.files]; pf.value = '';
@@ -537,7 +546,7 @@
     try { await uploadOne(`/api/admin/packages/${id}/image`, file); toast('Card photo saved. It’s live on the site.'); loadSettings(); }
     catch (err) { if (err.status === 401) return handle(err); status.textContent = err.message; }
   });
-  $('package-forms').addEventListener('click', async (e) => {
+  $('tab-packages').addEventListener('click', async (e) => {
     const pfRm = e.target.closest('[data-pf-remove]'); const pfFirst = e.target.closest('[data-pf-first]');
     if (pfRm || pfFirst) {
       e.preventDefault();
@@ -550,9 +559,17 @@
       } catch (err) { handle(err); }
       return;
     }
+    const send = e.target.closest('[data-send]');
+    if (send) {
+      const url = `${location.origin}/offer/${send.dataset.send}`;
+      // On a phone this opens the share sheet (Messages, Instagram…); elsewhere the link is copied.
+      if (navigator.share) { try { await navigator.share({ title: send.dataset.name, url }); } catch (err) { /* closed the sheet */ } return; }
+      try { await navigator.clipboard.writeText(url); toast('Link copied. Paste it in your message.'); } catch (err) { prompt('Copy this link:', url); }
+      return;
+    }
     const mv = e.target.closest('[data-move]');
     if (mv) {
-      const before = packages.map((p) => p.id);
+      const before = shelf().map((p) => p.id);
       const ids = before.slice();
       const i = ids.indexOf(Number(mv.dataset.id)); const j = i + Number(mv.dataset.move);
       if (j < 0 || j >= ids.length) return;
@@ -582,9 +599,14 @@
     renderPackages();
   }
   $('add-package').addEventListener('click', () => {
-    if (document.querySelector('.pkg-form[data-id=""]')) return;
+    if ($('package-forms').querySelector('.pkg-form[data-id=""]')) return;
     $('package-forms').insertAdjacentHTML('beforeend', packageForm({}));
-    document.querySelector('.pkg-form[data-id=""] input').focus();
+    $('package-forms').querySelector('.pkg-form[data-id=""] input').focus();
+  });
+  $('add-offer').addEventListener('click', () => {
+    if ($('offer-forms').querySelector('.pkg-form[data-id=""]')) return;
+    $('offer-forms').insertAdjacentHTML('beforeend', packageForm({ offer: 1 }));
+    $('offer-forms').querySelector('.pkg-form[data-id=""] input').focus();
   });
 
   /* ======================================================================

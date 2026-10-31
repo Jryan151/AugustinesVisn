@@ -168,6 +168,8 @@ function init(file) {
   // The balance: once paid (online or marked by the photographer), the client's clean photos unlock.
   // Zelle: how the deposit is paid, the reference the client puts in the memo, and when they said they'd sent it.
   if (!has('bookings', 'pay_method')) db.exec("ALTER TABLE bookings ADD COLUMN pay_method TEXT NOT NULL DEFAULT 'card'; ALTER TABLE bookings ADD COLUMN ref_code TEXT; ALTER TABLE bookings ADD COLUMN zelle_sent_at TEXT; ALTER TABLE bookings ADD COLUMN balance_zelle_sent_at TEXT; CREATE UNIQUE INDEX IF NOT EXISTS bookings_ref ON bookings(ref_code) WHERE ref_code IS NOT NULL;");
+  // An offer: a package made for one client, reached only by its private link (never listed on the site).
+  if (!has('packages', 'offer')) db.exec('ALTER TABLE packages ADD COLUMN offer INTEGER NOT NULL DEFAULT 0');
   if (!has('bookings', 'balance_paid_at')) db.exec('ALTER TABLE bookings ADD COLUMN balance_paid_at TEXT; ALTER TABLE bookings ADD COLUMN balance_session_id TEXT; ALTER TABLE bookings ADD COLUMN balance_paid_by TEXT');
   if (!get('SELECT 1 FROM packages LIMIT 1')) {
     for (const p of SEED_PACKAGES) {

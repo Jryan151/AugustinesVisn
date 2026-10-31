@@ -1,5 +1,7 @@
 /* =====================================================================
    portfolio.js — a package's example shots (/portfolio/<slug>), reached from the package card's "See portfolio".
+   Also an offer's page (/offer/<slug>): a package the photographer made for one client and sent as a link. Same page,
+   plus what's included and what's paid when, and one button that goes straight to picking a time.
 
    A grid of the shots at their real shapes (nothing jumps as they load). Tapping one opens it large; swipe, the
    arrows or the arrow keys move through them. "Book" goes straight to booking this package.
@@ -14,11 +16,20 @@
 
   api('/api/portfolio/' + encodeURIComponent(slug)).then(({ package: p, photos: list }) => {
     photos = list;
-    document.title = `${p.name} portfolio · ${document.title.split('· ').pop()}`;
+    const brand = document.title.split('· ').pop();
+    document.title = p.offer ? `${p.name} · ${brand}` : `${p.name} portfolio · ${brand}`;
     $('title').textContent = p.name;
-    $('sub').innerHTML = `<span class="num">${money(p.price_cents)} · ${p.minutes} min · ${p.photos} edited photos</span>`;
+    $('sub').innerHTML = `<span class="num">${money(p.price_cents)} · ${p.minutes} min · ${p.photos} edited photos${p.offer ? ` · ready in ${p.turnaround_days} days` : ''}</span>`;
     const href = '/book?p=' + encodeURIComponent(p.slug);
-    $('book').href = href; $('book').textContent = `Book ${p.name}`; $('book').hidden = false;
+    $('book').href = href; $('book').textContent = p.offer ? 'Pick a time' : `Book ${p.name}`; $('book').hidden = false;
+    if (p.offer) {
+      $('eyebrow').textContent = 'Your offer';
+      if (p.summary) { $('summary').textContent = p.summary; $('summary').hidden = false; }
+      const rest = p.price_cents - p.deposit_cents;
+      $('terms').textContent = rest > 0 ? `${money(p.deposit_cents)} deposit to book · ${money(rest)} before you download your photos` : `${money(p.deposit_cents)} to book`;
+      $('terms').hidden = false;
+      if (!list.length) { $('grid').hidden = true; return; }
+    }
     $('nav-book').href = href;
     $('grid').innerHTML = list.length ? list.map((ph, i) => `<figure>
         <button type="button" class="view" data-i="${i}" aria-label="Open photo ${i + 1} of ${list.length}">

@@ -6,7 +6,7 @@
      GET  /api/health                   ok when the app and its database answer
      GET  /api/site                     business name and booking terms
      GET  /api/packages                 what can be booked
-     GET  /api/portfolio/:slug          a package's example shots
+     GET  /api/portfolio/:slug          a package's example shots (and an offer: a package made for one client, at /offer/<slug>)
      GET  /api/availability             times for a package (?package=slug&from=YYYY-MM-DD&days=42)
      POST /api/bookings                 hold a time and start the deposit (needs an Idempotency-Key header)
      GET  /api/bookings/:token          a client's own booking (the token is private, from their link)
@@ -37,6 +37,7 @@
      GET /api/admin/email · POST /api/admin/email/test
      GET/PUT /api/admin/payments · PUT/DELETE /api/admin/payments/zelle-qr · POST /api/admin/bookings/:id/zelle-received
    ===================================================================== */
+const crypto = require('crypto');
 const db = require('./db');
 const config = require('./config');
 const auth = require('./auth');
@@ -61,7 +62,7 @@ const int = (v, min, max, name) => {
   return n;
 };
 
-const PUBLIC_PACKAGE = 'id, slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, image_json, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count';
+const PUBLIC_PACKAGE = 'id, slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, image_json, offer, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count';
 // A package as the public sees it: its card photo as addresses, not the stored file names.
 const publicPackage = (p) => { const out = Object.assign({}, p, { image: sitemedia.view(sitemedia.packageImage(p)) }); delete out.image_json; return out; };
 const activePackage = (slug) => db.get(`SELECT * FROM packages WHERE slug = ? AND active = 1`, [String(slug || '')]);
@@ -87,10 +88,10 @@ function build() {
   r.get('/api/site', (req, res) => res.json(200, { businessName: config.businessName, terms: db.setting('terms'), payments: methods(), zelle: zelle.publicInfo(), zelleHoldHours: zelle.settings().holdHours }));
 
   r.get('/api/packages', (req, res) => {
-    res.json(200, { packages: db.all(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE active = 1 ORDER BY sort, id`).map(publicPackage) });
+    res.json(200, { packages: db.all(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE active = 1 AND offer = 0 ORDER BY sort, id`).map(publicPackage) });
   });
 
-  // A package's portfolio: its example shots, for /portfolio/<slug>.
+  // A package's portfolio: its example shots, for /portfolio/<slug>. An offer's private page (/offer/<slug>) uses it too.
   r.get('/api/portfolio/:slug', (req, res) => {
     const pkg = db.get(`SELECT ${PUBLIC_PACKAGE} FROM packages WHERE slug = ? AND active = 1`, [String(req.params.slug)]);
     if (!pkg) throw new HttpError(404, 'No such package.');
@@ -305,10 +306,10 @@ function build() {
     if (req.body.terms !== undefined) db.saveSetting('terms', longText(req.body.terms, 3000));
     res.json(200, { availability: db.setting('availability'), terms: db.setting('terms') });
   }));
-  // The order packages appear in, everywhere (home page, booking): the full list of ids, first to last.
+  // The order packages appear in, everywhere (home page, booking): the full list of ids, first to last. Offers aren't listed, so they have no place in it.
   r.put('/api/admin/packages/order', admin((req, res) => {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number) : [];
-    const all = db.all('SELECT id FROM packages').map((r) => r.id);
+    const all = db.all('SELECT id FROM packages WHERE offer = 0').map((r) => r.id);
     if (ids.length !== all.length || new Set(ids).size !== ids.length || !ids.every((i) => all.includes(i))) {
       throw new HttpError(400, 'Send every package once, in the new order.');
     }
@@ -316,17 +317,21 @@ function build() {
     res.json(200, { packages: db.all('SELECT *, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count FROM packages ORDER BY sort, id').map(publicPackage) });
   }));
   r.post('/api/admin/packages', admin((req, res) => {
-    const p = cleanPackage(req.body);
+    // An offer gets a link nobody could guess; it's the only way to reach it.
+    const offer = req.body.offer === true ? 1 : 0;
+    const p = cleanPackage(offer ? Object.assign({}, req.body, { slug: 'offer-' + crypto.randomBytes(9).toString('hex') }) : req.body);
     // A new package goes to the end of the list; the photographer moves it from there.
     const last = db.get('SELECT COALESCE(MAX(sort), 0) AS n FROM packages').n;
-    const out = db.run(`INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort, active)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`, [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, last + 1, p.active]);
+    const out = db.run(`INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort, active, offer)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, last + 1, p.active, offer]);
     res.json(200, { package: publicPackage(db.get('SELECT * FROM packages WHERE id = ?', [out.lastInsertRowid])) });
   }));
   r.put('/api/admin/packages/:id', admin((req, res) => {
     const id = Number(req.params.id);
-    if (!db.get('SELECT 1 FROM packages WHERE id = ?', [id])) throw new HttpError(404, 'No such package.');
-    const p = cleanPackage(req.body);
+    const was = db.get('SELECT slug, offer FROM packages WHERE id = ?', [id]);
+    if (!was) throw new HttpError(404, 'No such package.');
+    // An offer keeps its link: it's already been sent.
+    const p = cleanPackage(was.offer ? Object.assign({}, req.body, { slug: was.slug }) : req.body);
     // Saving a package never moves it: its place in the list is set only by the order below.
     db.run(`UPDATE packages SET slug=?, name=?, summary=?, minutes=?, photos=?, turnaround_days=?, price_cents=?, deposit_cents=?, active=? WHERE id=?`,
       [p.slug, p.name, p.summary, p.minutes, p.photos, p.turnaround_days, p.price_cents, p.deposit_cents, p.active, id]);

@@ -23,6 +23,7 @@ const REWRITES = [
   [/^\/prep\/[A-Za-z0-9_-]+\/?$/, '/prep.html'],
   [/^\/gallery\/[A-Za-z0-9_-]+\/?$/, '/gallery.html'],
   [/^\/portfolio\/[a-z0-9-]+\/?$/, '/portfolio.html'],
+  [/^\/offer\/[a-z0-9-]+\/?$/, '/portfolio.html'],
   [/^\/confirm\/[A-Za-z0-9_.-]+\/?$/, '/confirm.html'],
 ];
 

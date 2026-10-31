@@ -231,6 +231,11 @@
       $('step-1').hidden = false;
       return;
     }
+    // An offer (a package made for one client) isn't in the public list: fetch it by its private link, and offer only it.
+    if (q.get('p') && !state.packages.some((p) => p.slug === q.get('p'))) {
+      const offer = await api('/api/portfolio/' + encodeURIComponent(q.get('p'))).then((r) => r.package).catch(() => null);
+      if (offer && offer.offer) state.packages = [offer];
+    }
     renderPackages();
     const pre = state.packages.find((p) => p.slug === q.get('p'));
     if (pre) { state.pkg = pre; setBackground(pre); renderPackages(); }
