@@ -505,3 +505,9 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 /* Room at the bottom of every page, so the note never hides the last button for good. */
 body:has(.demo-banner) { padding-bottom: 72px; }
 .demo-reset, .demo-exit { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font: 600 13px var(--font-body); cursor: pointer; }
+
+/* Admin › Setup › Site photos › Behind Admin: pick the one photo. */
+.admin-bg-pick { margin-top: 12px; }
+.admin-bg-pick button { padding: 0; border: 2px solid transparent; border-radius: 12px; background: none; cursor: pointer; overflow: hidden; min-height: 44px; }
+.admin-bg-pick button[aria-pressed="true"] { border-color: var(--accent); }
+.admin-bg-pick img { display: block; width: 100%; height: auto; }

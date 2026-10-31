@@ -11,6 +11,7 @@
   <!--SITE_CSS-->
 </head>
 <body>
+  <!--ADMIN_BG-->
   <nav class="nav glass" aria-label="Admin">
     <a class="brand" href="/">{{BRAND}}</a>
     <div class="nav-links"><button class="btn btn-small" type="button" id="demo-toggle" hidden>Demo</button><button class="btn btn-text" type="button" id="logout" hidden>Log out</button></div>
@@ -105,6 +106,17 @@
                 <span class="muted" id="bg-status" role="status"></span>
               </div>
             </div>
+            <div class="panel">
+              <h2>Behind Admin</h2>
+              <p class="muted">Your photos behind this side too, under a dark veil so everything stays easy to read.</p>
+              <div class="filters" id="admin-bg-modes" role="group" aria-label="Behind Admin">
+                <button type="button" class="chip" data-admin-bg="off" aria-pressed="false">Off</button>
+                <button type="button" class="chip" data-admin-bg="site" aria-pressed="false">Same as the site</button>
+                <button type="button" class="chip" data-admin-bg="photo" aria-pressed="false">One photo</button>
+              </div>
+              <div class="thumbs admin-bg-pick" id="admin-bg-photos" hidden></div>
+              <p class="muted" id="admin-bg-note" hidden>Add background photos above first.</p>
+            </div>
           </section>
           <section id="setup-payments" class="setup-part" aria-label="Payments and email" hidden>
             <form class="panel narrow" id="zelle-form">
@@ -162,7 +174,7 @@
                 <dt>Setup</dt><dd>The things you set once and change now and then, one at a time:
                   <b>Availability</b> (which days have sunrise or sunset sessions, shoots per week, notice, how far ahead, days off, booking terms),
                   <b>Packages</b> (what’s for sale on the site),
-                  <b>Site photos</b> (the backgrounds behind every page), and
+                  <b>Site photos</b> (the backgrounds behind every page, and what shows behind this Admin side), and
                   <b>Payments &amp; email</b> (in person on or off, Zelle details, card status, a test email).</dd>
                 <dt>Guide</dt><dd>This page.</dd>
               </dl>

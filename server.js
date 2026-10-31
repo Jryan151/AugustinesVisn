@@ -50,6 +50,7 @@ function page(file, res) {
     .replace('<!--SITE_BG strong-->', () => sitemedia.backgroundMarkup(true))
     .replace('<!--SITE_BG see-through-->', () => sitemedia.backgroundMarkup(false).replace('class="bg"', 'class="bg see-through"'))
     .replace('<!--SITE_BG-->', () => sitemedia.backgroundMarkup(false))
+    .replace('<!--ADMIN_BG-->', () => sitemedia.adminBackgroundMarkup())
     .replace(/(src|href)="\/([a-z0-9-]+\.(?:js|css))"/g, `$1="/$2?v=${BUILD}"`)
     .replace('<!--SITE_CSS-->', () => `<link rel="stylesheet" href="/site.css?v=${sitemedia.cssStamp()}">`)
     .replace(/\{\{BRAND\}\}/g, () => esc(config.businessName))

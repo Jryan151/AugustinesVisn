@@ -4,6 +4,8 @@
 
    - Site background: up to MAX_BG photos behind the public pages. The first shows at once; the rest fade in one
      after another with a slow drift (common.js). With "reduce motion" or data saver, only the first, still.
+   - Behind Admin (the owner's choice, for the look): off, the same fading photos as the site, or one of them still.
+     The booking pages' veil goes over it, and every card and form stays solid, so the admin reads as before.
    - Package image: one photo behind each package's card on the home page (and behind the booking page once that
      package is picked).
    Each photo can be nudged in Admin: a focus point (which part stays in view when the frame crops it) and a zoom.
@@ -104,6 +106,31 @@ function backgroundMarkup(strong) {
   return `<div class="bg${strong ? ' strong' : ''}" aria-hidden="true">${imgs}<div class="bg-veil"></div></div>`;
 }
 
+/* ---------- behind Admin: off, the site's photos, or one of them ---------- */
+const ADMIN_MODES = ['off', 'site', 'photo'];
+function adminBackground() {
+  const a = Object.assign({ mode: 'site', key: null }, db.setting('adminBackground') || {});
+  // The chosen photo was removed: fall back to the site's photos.
+  if (a.mode === 'photo' && !backgroundPhotos().some((p) => p.name === a.key)) return { mode: 'site', key: null };
+  return a;
+}
+function saveAdminBackground(body) {
+  const mode = String(body.mode || '');
+  if (!ADMIN_MODES.includes(mode)) throw new HttpError(400, 'Pick Off, Same as the site, or One photo.');
+  const key = mode === 'photo' ? String(body.key || '') : null;
+  if (mode === 'photo' && !backgroundPhotos().some((p) => p.name === key)) throw new HttpError(400, 'Pick one of the background photos.');
+  db.saveSetting('adminBackground', { mode, key });
+  return adminBackground();
+}
+/** The background layer for the Admin page, or nothing. */
+function adminBackgroundMarkup() {
+  const a = adminBackground();
+  if (a.mode === 'off' || !backgroundPhotos().length) return '';
+  if (a.mode === 'site') return backgroundMarkup(true).replace('class="bg strong"', 'class="bg strong admin"');
+  const p = backgroundPhotos().find((x) => x.name === a.key);
+  return `<div class="bg strong admin" aria-hidden="true"><img class="bg-photo on" data-key="${esc(p.name)}" src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async"><div class="bg-veil"></div></div>`;
+}
+
 /* ---------- package images ---------- */
 const packageImage = (pkg) => { try { return pkg.image_json ? JSON.parse(pkg.image_json) : null; } catch (e) { return null; } };
 
@@ -171,4 +198,4 @@ function serveMedia(req, res) {
   return true;
 }
 
-module.exports = { portfolio, addPortfolio, removePortfolio, firstPortfolio, MAX_PORTFOLIO, frameBackground, framePackageImage, siteCss, cssStamp, addBackground, removeBackground, firstBackground, backgroundPhotos, backgroundMarkup, setPackageImage, removePackageImage, packageImage, view, serveMedia, MAX_BG };
+module.exports = { adminBackground, saveAdminBackground, adminBackgroundMarkup, portfolio, addPortfolio, removePortfolio, firstPortfolio, MAX_PORTFOLIO, frameBackground, framePackageImage, siteCss, cssStamp, addBackground, removeBackground, firstBackground, backgroundPhotos, backgroundMarkup, setPackageImage, removePackageImage, packageImage, view, serveMedia, MAX_BG };

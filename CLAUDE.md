@@ -8,7 +8,9 @@ Flashy is not a reason. Every feature has to fit with the others, not compete wi
 - Two surfaces only: `.glass` where people browse (nav, package cards over the background), `.panel` (solid) where
   people commit. Exception, by the owner's choice: the booking steps are frosted glass over the package photo
   (`.book-glass`): strong blur and tint, with every control keeping its own darker fill so text stays readable.
-  Admin and the client gallery stay solid.
+  Admin and the client gallery stay solid. Exception, by the owner's choice, for the look: Admin can show the site's
+  background photos behind it (Setup › Site photos › Behind Admin: off / same as the site / one photo), always under the
+  same veil as the booking pages (`.bg.strong`), with every card, panel and form still solid on top.
 - One dark base, one accent (golden-hour amber, `--accent`), two typefaces (Instrument Serif for display and the name (matches the business card; the name is always upper-case), Space Grotesk for text).
   New colours go in `:root` as tokens.
 - Motion only where it has a job: the background fade-in and short (≤ 300 ms) view transitions. No hover lifts, no

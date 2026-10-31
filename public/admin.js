@@ -374,10 +374,40 @@
   /* ======================================================================
      Site (background photos)
      ====================================================================== */
-  let bgPhotos = [];
+  let bgPhotos = []; let adminBg = { mode: 'site', key: null };
   async function loadSite() {
-    try { const s = await api('/api/admin/site'); bgPhotos = s.background; $('bg-max').textContent = s.max; renderSite(); } catch (e) { handle(e); }
+    try { const s = await api('/api/admin/site'); bgPhotos = s.background; adminBg = s.adminBackground; $('bg-max').textContent = s.max; renderSite(); } catch (e) { handle(e); }
   }
+
+  /* ---------- Behind Admin: off, the site's photos, or one of them (the owner's choice, for the look) ---------- */
+  function renderAdminBg() {
+    const none = !bgPhotos.length;
+    // The chosen photo was removed: the server falls back to the site's photos, so show that.
+    if (adminBg.mode === 'photo' && adminBg.key && !bgPhotos.some((p) => p.key === adminBg.key)) adminBg = { mode: 'site', key: null };
+    $('admin-bg-note').hidden = !none;
+    document.querySelectorAll('[data-admin-bg]').forEach((c) => { c.setAttribute('aria-pressed', String(c.dataset.adminBg === adminBg.mode)); c.disabled = none && c.dataset.adminBg !== 'off'; });
+    $('admin-bg-photos').hidden = adminBg.mode !== 'photo' || none;
+    $('admin-bg-photos').innerHTML = bgPhotos.map((p, i) => `<button type="button" data-admin-bg-key="${esc(p.key)}" aria-pressed="${p.key === adminBg.key}" aria-label="Use background photo ${i + 1} behind Admin">
+        <img src="${esc(p.thumb)}" width="${p.width}" height="${p.height}" alt="" loading="lazy"></button>`).join('');
+  }
+  async function saveAdminBg(mode, key) {
+    try {
+      const out = await api('/api/admin/site/admin-background', { method: 'PUT', body: { mode, key } });
+      adminBg = out.adminBackground; renderAdminBg();
+      // Swap the layer behind this page at once (no reload, you stay where you are).
+      const old = document.querySelector('body > .bg'); if (old) old.remove();
+      if (out.markup) { document.body.insertAdjacentHTML('afterbegin', out.markup); AV.startBackground(document.body.firstElementChild); }
+      toast(mode === 'off' ? 'Admin is back to plain.' : 'Saved. That’s what’s behind Admin now.');
+    } catch (err) { handle(err); }
+  }
+  $('admin-bg-modes').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-admin-bg]'); if (!c || c.disabled) return;
+    const mode = c.dataset.adminBg;
+    // One photo: show the choices; the first tap on a photo saves it. (Already on one? Keep it.)
+    if (mode === 'photo' && adminBg.mode !== 'photo') { adminBg = { mode: 'photo', key: null }; renderAdminBg(); return; }
+    if (mode !== 'photo') saveAdminBg(mode);
+  });
+  $('admin-bg-photos').addEventListener('click', (e) => { const b = e.target.closest('[data-admin-bg-key]'); if (b) saveAdminBg('photo', b.dataset.adminBgKey); });
   // Admin's own thumbnails show each photo framed as saved (the site gets the same from /site.css).
   function applyFrames(root, list) {
     for (const p of list) root.querySelectorAll(`img.framed[data-key="${p.key}"]`).forEach((img) => setFrame(img, p));
@@ -390,6 +420,7 @@
           <button type="button" class="btn btn-small" data-bg-frame="${esc(p.key)}">Adjust</button>
           <button type="button" class="btn btn-small btn-text" data-bg-remove="${esc(p.key)}">Remove</button></figcaption>
       </figure>`).join('') || '<p class="empty">No background photos yet: the site uses a plain warm gradient.</p>';
+    renderAdminBg();
   }
   $('bg-photos').addEventListener('click', async (e) => {
     const first = e.target.closest('[data-first]'); const rm = e.target.closest('[data-bg-remove]');

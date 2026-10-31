@@ -33,7 +33,7 @@
      GET/PUT /api/admin/packages/:id/portfolio · DELETE /api/admin/portfolio/:id · POST …/:id/first
      GET/PUT /api/admin/bookings/:id/photos          a client's finished photos (PUT = one raw image per request)
      DELETE /api/admin/photos/:id · POST …/restore · GET /api/admin/photos/:id/:size
-     GET /api/admin/site · PUT /api/admin/site/background · DELETE …/:key · POST …/:key/first
+     GET /api/admin/site · PUT /api/admin/site/background · DELETE …/:key · POST …/:key/first · PUT /api/admin/site/admin-background
      GET /api/admin/clients · PUT /api/admin/clients/notes
      GET /api/admin/email · POST /api/admin/email/test
      GET/PUT /api/admin/payments · PUT/DELETE /api/admin/payments/zelle-qr · POST /api/admin/bookings/:id/zelle-received
@@ -279,7 +279,9 @@ function build() {
   }));
 
   // The site's look.
-  r.get('/api/admin/site', admin((req, res) => res.json(200, { background: sitemedia.backgroundPhotos().map(sitemedia.view), max: sitemedia.MAX_BG })));
+  r.get('/api/admin/site', admin((req, res) => res.json(200, { background: sitemedia.backgroundPhotos().map(sitemedia.view), max: sitemedia.MAX_BG, adminBackground: sitemedia.adminBackground() })));
+  // Behind Admin: { mode: 'off' | 'site' | 'photo', key }. Answers with the new layer, so the page changes at once.
+  r.put('/api/admin/site/admin-background', admin((req, res) => res.json(200, { adminBackground: sitemedia.saveAdminBackground(req.body), markup: sitemedia.adminBackgroundMarkup() })));
   r.put('/api/admin/site/background', admin(async (req, res) => res.json(200, { background: await sitemedia.addBackground(req) })), { stream: true });
   r.delete('/api/admin/site/background/:key', admin((req, res) => res.json(200, { background: sitemedia.removeBackground(req.params.key) })));
   r.post('/api/admin/site/background/:key/first', admin((req, res) => res.json(200, { background: sitemedia.firstBackground(req.params.key) })));
