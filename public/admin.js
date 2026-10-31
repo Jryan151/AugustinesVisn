@@ -7,6 +7,7 @@
      Availability  when people can book, and the booking terms.
      Packages      prices, lengths, and the photo behind each package's card. Offers: a package made for one client,
                    never listed on the site, sent as a link (/offer/<slug>) that they book from.
+     Guide         how the site works, in plain words (static: nothing to load).
 
    Moves happen at once with an Undo toast instead of "Are you sure?". Anything that emails the client (send gallery,
    cancel) waits 10 seconds first, so Undo can still take it back. Removing a site photo can't be undone, so that one
@@ -51,7 +52,7 @@
   const loaders = { pipeline: () => loadBoard(), clients: () => loadClients(), site: () => loadSite(), payments: () => loadPayments() };
   document.querySelectorAll('[data-tab]').forEach((t) => t.addEventListener('click', () => {
     document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
-    for (const name of ['pipeline', 'clients', 'site', 'settings', 'packages', 'payments']) $('tab-' + name).hidden = name !== t.dataset.tab;
+    for (const name of ['pipeline', 'clients', 'site', 'settings', 'packages', 'payments', 'guide']) $('tab-' + name).hidden = name !== t.dataset.tab;
     if (loaders[t.dataset.tab]) loaders[t.dataset.tab]();
   }));
   addEventListener('focus', () => { if (!$('app').hidden && !$('tab-pipeline').hidden && !$('photos').open) loadBoard(); });

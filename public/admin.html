@@ -35,6 +35,7 @@
           <button role="tab" aria-selected="false" data-tab="settings">Availability</button>
           <button role="tab" aria-selected="false" data-tab="packages">Packages</button>
           <button role="tab" aria-selected="false" data-tab="payments">Payments &amp; email</button>
+          <button role="tab" aria-selected="false" data-tab="guide">Guide</button>
         </div>
 
         <section id="tab-pipeline" role="tabpanel">
@@ -114,6 +115,74 @@
           </section>
         </section>
 
+        <section id="tab-guide" role="tabpanel" hidden>
+          <div class="guide">
+            <h2>How this site works</h2>
+            <p class="muted">Tap a section to open it.</p>
+
+            <details class="panel" open>
+              <summary>The life of a booking</summary>
+              <ol class="guide-steps">
+                <li><b>The client books.</b> They pick a package, a sunrise or sunset time, and pay the deposit (card or Zelle).</li>
+                <li><b>You both get an email.</b> They get a confirmation; you get a “new booking” notice.</li>
+                <li><b>They tell you about the shoot.</b> Their confirmation links to a short form: location, the look, who or what you’re shooting. The booking moves to <i>Prepped</i>.</li>
+                <li><b>Reminders go out on their own,</b> 3 days and 1 day before the session.</li>
+                <li><b>You shoot, then edit.</b> Tap <i>Mark shot</i>, then <i>Start editing</i>.</li>
+                <li><b>You send the photos.</b> Tap <i>Photos</i>, add them, and tap <i>Send</i>. The client gets a link to their gallery.</li>
+                <li><b>Watermarked until paid.</b> The client sees proofs with your watermark until the balance is paid. Then the clean, full-size photos unlock to download.</li>
+                <li><b>A week later</b>, they get a short note asking how the photos turned out.</li>
+              </ol>
+            </details>
+
+            <details class="panel">
+              <summary>The tabs</summary>
+              <dl class="guide-list">
+                <dt>Bookings</dt><dd>Everything in progress, one column per stage. Every action happens here.</dd>
+                <dt>Clients</dt><dd>Everyone who has booked: their sessions, totals, and private notes only you see. Search by name, email, phone or package.</dd>
+                <dt>Site</dt><dd>The background photos behind every page.</dd>
+                <dt>Availability</dt><dd>When people can book: which days have sunrise or sunset sessions, shoots per week, notice needed, how far ahead, days off, and the booking terms.</dd>
+                <dt>Packages</dt><dd>What’s for sale on the site: price, deposit, length, photos, turnaround, card photo and example shots. Also your <b>Offers</b>.</dd>
+                <dt>Payments &amp; email</dt><dd>Zelle details, whether card payments are on, and a test email to check that emails arrive.</dd>
+              </dl>
+            </details>
+
+            <details class="panel">
+              <summary>Offers: a custom package for one client</summary>
+              <ol class="guide-steps">
+                <li>Go to <i>Packages</i> and tap <b>Make an offer</b> at the bottom.</li>
+                <li>Fill in the title, a line or two about the shoot, the price and the deposit. Tap <i>Save</i>.</li>
+                <li>Tap <b>Send link</b> and send it in your DM or text.</li>
+                <li>The client opens it, taps <i>Pick a time</i> and books it like any package.</li>
+              </ol>
+              <p class="muted">Offers never show on your site. The link keeps working until you untick <i>Open for booking</i> on that offer, so it can be booked more than once until then.</p>
+            </details>
+
+            <details class="panel">
+              <summary>Getting paid</summary>
+              <dl class="guide-list">
+                <dt>Deposit by card</dt><dd>Paid on Stripe. The booking confirms itself.</dd>
+                <dt>Deposit by Zelle</dt><dd>The time is held while it arrives. When the client taps “I’ve sent it”, you get an email. Check your bank, then tap <i>Confirm</i> in that email or <i>received</i> on the booking.</dd>
+                <dt>The balance</dt><dd>Paid online in their gallery, by Zelle, or in person. If they pay you in person, tap <b>Mark paid</b> on the booking and their photos unlock.</dd>
+              </dl>
+            </details>
+
+            <details class="panel">
+              <summary>Mistakes and Undo</summary>
+              <p>Most taps happen right away and show an <b>Undo</b> button for a few seconds. Anything that emails the client (sending a gallery, cancelling, marking paid, confirming Zelle) waits about 10 seconds first, so Undo can stop it. Once the email has gone, it can’t be undone.</p>
+            </details>
+
+            <details class="panel">
+              <summary>Good to know</summary>
+              <ul class="guide-steps">
+                <li><b>No double bookings.</b> Two people can never get the same time.</li>
+                <li><b>Holds:</b> a card payment holds the time for 30 minutes. A Zelle deposit holds it for the hours set under <i>Payments &amp; email</i>.</li>
+                <li><b>Shoots per week</b> counts held times as well as paid ones.</li>
+                <li><b>Needs attention:</b> someone paid after their hold ran out and the time had gone to someone else. Refund their deposit and offer them another date.</li>
+                <li><b>Client links are private.</b> Each client’s booking and gallery pages work only from the link in their emails.</li>
+              </ul>
+            </details>
+          </div>
+        </section>
         <section id="tab-packages" role="tabpanel" hidden>
           <div id="package-forms"></div>
           <button class="btn" type="button" id="add-package">Add a package</button>

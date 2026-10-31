@@ -475,3 +475,15 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 
 .z-admin-qr img { width: 160px; height: auto; border-radius: var(--radius-sm); background: #fff; padding: 6px; display: block; margin-bottom: 8px; }
 #tab-payments .panel { margin-bottom: 16px; }
+
+/* Admin › Guide: plain sections that open one at a time. */
+.guide { max-width: 640px; }
+.guide > h2 { margin: 0 0 4px; }
+.guide > p { margin: 0 0 16px; }
+.guide details { margin-bottom: 12px; }
+.guide summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.guide-steps { margin: 8px 0 0; padding-left: 1.2em; }
+.guide-steps li { margin-bottom: 10px; text-wrap: pretty; }
+.guide-list dt { font-weight: 600; margin-top: 12px; }
+.guide-list dd { margin: 2px 0 0; color: var(--muted); text-wrap: pretty; }
+.guide p { text-wrap: pretty; }
