@@ -96,7 +96,7 @@
   // A real calendar: Monday to Sunday columns, open days as buttons, the rest dimmed.
   function renderDays() {
     if (!state.days.some((d) => d.slots.length)) {
-      $('days').innerHTML = '<p class="empty">No open times in these weeks. Try later dates, or email to ask about a custom time.</p>';
+      $('days').innerHTML = '<p class="empty">No open times in these weeks. Try later dates, or request another time below.</p>';
       return;
     }
     const first = state.days[0].date;
@@ -223,6 +223,34 @@
       if (err.status >= 400 && err.status < 500) state.key = null; // a refused request can be fixed and sent again as new
       fieldError(err.message, err.data && err.data.field);
     }
+  });
+
+  /* ---------- outside sunrise and sunset: ask for another time ---------- */
+  $('ask-time').addEventListener('click', () => {
+    const open = $('request-form').hidden;
+    $('request-form').hidden = !open; $('ask-time').setAttribute('aria-expanded', String(open)); $('request-done').hidden = true;
+    if (open) {
+      const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      $('req-date').min = today; if (state.date && !$('req-date').value) $('req-date').value = state.date;
+      $('req-date').focus();
+    }
+  });
+  $('request-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target; const btn = $('req-send');
+    if (btn.getAttribute('aria-busy') === 'true') return;
+    const err = (msg, field) => { $('request-error').textContent = msg; $('request-error').hidden = false; if (field && $(field)) $(field).focus(); };
+    if (!f.date.value || !f.time.value) return err('Pick a date and a start time.', f.date.value ? 'req-time' : 'req-date');
+    if (f.name.value.trim().length < 2) return err('Add your name.', 'req-name');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.value.trim())) return err('Check your email address.', 'req-email');
+    $('request-error').hidden = true; btn.setAttribute('aria-busy', 'true'); const label = btn.textContent; btn.textContent = 'Sending…';
+    try {
+      await api('/api/requests', { method: 'POST', body: { package: state.pkg.slug, date: f.date.value, time: f.time.value, name: f.name.value, email: f.email.value, phone: f.phone.value, note: f.note.value } });
+      f.hidden = true; $('ask-time').hidden = true;
+      $('request-done').hidden = false;
+      $('request-done').innerHTML = `<p><b>Request sent.</b> I’ll look at ${esc(day(f.date.value, { weekday: 'long', month: 'long' }))} and email you at ${esc(f.email.value.trim())} once it’s booked, or if it can’t work.</p>`;
+    } catch (ex) { err(ex.message, ex.data && ex.data.field); }
+    finally { btn.removeAttribute('aria-busy'); btn.textContent = label; }
   });
 
   /* ---------- in person: the code from their email books the time ---------- */

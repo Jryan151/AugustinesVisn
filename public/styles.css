@@ -118,7 +118,7 @@ a { color: inherit; }
 
 label { display: block; font-weight: 600; font-size: 14px; margin: 0 0 6px; }
 .hint { font-weight: 400; color: var(--muted); }
-input[type=text], input[type=email], input[type=tel], input[type=url], input[type=number], input[type=password], input[type=date], textarea, select {
+input[type=text], input[type=email], input[type=tel], input[type=url], input[type=number], input[type=password], input[type=date], input[type=time], textarea, select {
   width: 100%; min-height: 48px; padding: 12px 14px; border-radius: var(--radius-sm);
   background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font: 16px/1.4 var(--font-body);
 }
@@ -437,7 +437,7 @@ img.framed { transform-origin: var(--fx, 50%) var(--fy, 50%); transform: scale(v
 .book-glass .choice:hover { background: rgba(10, 10, 14, 0.6); }
 .book-glass .choice[aria-pressed="true"] { background: rgba(233, 165, 96, 0.16); }
 .book-glass .day.off { background: transparent; }
-.book-glass input[type=text], .book-glass input[type=email], .book-glass input[type=tel], .book-glass textarea { background: rgba(10, 10, 14, 0.6); border-color: rgba(255, 255, 255, 0.14); }
+.book-glass input[type=text], .book-glass input[type=email], .book-glass input[type=tel], .book-glass input[type=date], .book-glass input[type=time], .book-glass textarea { background: rgba(10, 10, 14, 0.6); border-color: rgba(255, 255, 255, 0.14); }
 .book-glass .progress li { color: #d6d3cd; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .book-glass .panel { background: rgba(14, 14, 20, 0.9); }
@@ -511,3 +511,9 @@ body:has(.demo-banner) { padding-bottom: 72px; }
 .admin-bg-pick button { padding: 0; border: 2px solid transparent; border-radius: 12px; background: none; cursor: pointer; overflow: hidden; min-height: 44px; }
 .admin-bg-pick button[aria-pressed="true"] { border-color: var(--accent); }
 .admin-bg-pick img { display: block; width: 100%; height: auto; }
+
+/* Booking › time: the request for a time outside sunrise and sunset, under the calendar. */
+.request-time { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.request-time form { margin-top: 12px; }
+.request-actions { align-items: center; }
+.request-actions input[type="time"] { width: auto; max-width: 9.5em; }

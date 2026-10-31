@@ -124,12 +124,14 @@ function queue(kind, booking, { delayMs = 0 } = {}) {
 }
 
 /** An email that isn't about one booking (the test email). Queued like the rest, so it's sent and logged the same way. */
-function queueNote({ kind, to, subject, body }) {
+function queueNote({ kind, to, subject, body, delayMs = 0 }) {
   if (!to) return null;
-  const now = new Date().toISOString();
+  const now = new Date();
   return db.run('INSERT INTO outbox (booking_id, kind, to_addr, subject, body, send_after, created_at) VALUES (NULL,?,?,?,?,?,?)',
-    [kind, to, subject, body, now, now]).lastInsertRowid;
+    [kind, to, subject, body, new Date(now.getTime() + delayMs).toISOString(), now.toISOString()]).lastInsertRowid;
 }
+/** Takes back one note (by its outbox id) while it hasn't left. True if it was taken back. */
+const unqueueNote = (id) => db.run("UPDATE outbox SET status = 'cancelled' WHERE id = ? AND status = 'pending'", [id]).changes > 0;
 
 /** For Admin: is email set up, and how's it going (sent today, anything stuck or failed). */
 function status() {
@@ -191,4 +193,4 @@ async function sendDue(now) {
   return due.length;
 }
 
-module.exports = { queueNote, status, queue, unqueue, processOutbox, compose, when, money, sentInTests };
+module.exports = { queueNote, unqueueNote, status, queue, unqueue, processOutbox, compose, when, money, sentInTests };

@@ -12,6 +12,8 @@
      - minimum notice and how far ahead people can book
      - a weekly cap (Mon–Sun) set by how many shoots they can edit in time to keep the turnaround promise
    A time is a slot key, 'YYYY-MM-DD:evening'. The database allows one live booking per key.
+   A custom time (a client's request the photographer booked, requests.js) is 'YYYY-MM-DD:custom-1430'. A golden-hour
+   time that overlaps a booked custom time isn't offered, so nothing is ever double-booked.
 
    computeDays() is pure (everything comes in as arguments), so the rules are tested without a database.
    ===================================================================== */
@@ -62,7 +64,7 @@ function periodTimes(ymd, period, minutes, rules, lat, lng) {
  *   weekCounts  Map of week key → live bookings that week
  * Returns [{ date, slots: [{ key, period, start, end }] }], one entry per day (slots may be empty).
  */
-function computeDays({ fromYmd, days, minutes, rules, now, lat = config.latitude, lng = config.longitude, taken = new Set(), weekCounts = new Map() }) {
+function computeDays({ fromYmd, days, minutes, rules, now, lat = config.latitude, lng = config.longitude, taken = new Set(), weekCounts = new Map(), busy = [] }) {
   const out = [];
   const earliest = now.getTime() + rules.minNoticeHours * 3600000;
   const lastYmd = addDays(localDate(now), rules.maxDaysAhead);
@@ -80,6 +82,7 @@ function computeDays({ fromYmd, days, minutes, rules, now, lat = config.latitude
       if (taken.has(key)) continue;
       const t = periodTimes(date, period, minutes, rules, lat, lng);
       if (!t || t.start.getTime() < earliest) continue;
+      if (busy.some((b) => b.start < t.end.getTime() && t.start.getTime() < b.end)) continue; // overlaps a custom time
       day.slots.push({ key, period, start: t.start.toISOString(), end: t.end.toISOString() });
     }
   }
@@ -92,7 +95,7 @@ function computeDays({ fromYmd, days, minutes, rules, now, lat = config.latitude
 function liveBookingsBetween(fromYmd, toYmd, now = new Date()) {
   const marks = db.ACTIVE.map(() => '?').join(',');
   return db.all(
-    `SELECT slot_key, local_date FROM bookings WHERE status IN (${marks}) AND local_date BETWEEN ? AND ?
+    `SELECT slot_key, local_date, start_at, end_at FROM bookings WHERE status IN (${marks}) AND local_date BETWEEN ? AND ?
        AND NOT (status = 'hold' AND hold_expires_at < ?)`,
     [...db.ACTIVE, weekKey(fromYmd), addDays(weekKey(toYmd), 6), now.toISOString()]);
 }
@@ -103,7 +106,8 @@ function forPackage(pkg, fromYmd, days, now = new Date()) {
   const taken = new Set(rows.map((r) => r.slot_key));
   const weekCounts = new Map();
   for (const r of rows) { const w = weekKey(r.local_date); weekCounts.set(w, (weekCounts.get(w) || 0) + 1); }
-  return computeDays({ fromYmd, days, minutes: pkg.minutes, rules: db.setting('availability'), now, taken, weekCounts });
+  const busy = rows.filter((r) => r.slot_key.includes(':custom-')).map((r) => ({ start: Date.parse(r.start_at), end: Date.parse(r.end_at) }));
+  return computeDays({ fromYmd, days, minutes: pkg.minutes, rules: db.setting('availability'), now, taken, weekCounts, busy });
 }
 
 /** The slot if it can be booked right now for this package, else null. */
@@ -114,4 +118,4 @@ function findSlot(pkg, slotKey, now = new Date()) {
   return day.slots.find((x) => x.key === slotKey) || null;
 }
 
-module.exports = { computeDays, forPackage, findSlot, periodTimes, parseSlotKey, localDate, addDays, weekKey, weekday, isYmd, PERIODS };
+module.exports = { computeDays, forPackage, findSlot, liveBookingsBetween, periodTimes, parseSlotKey, localDate, addDays, weekKey, weekday, isYmd, PERIODS };

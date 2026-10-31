@@ -10,6 +10,7 @@
      GET  /api/availability             times for a package (?package=slug&from=YYYY-MM-DD&days=42)
      POST /api/bookings                 hold a time and start the deposit (needs an Idempotency-Key header); in person: email a code
      POST /api/bookings/verify          in person: the code from the email books the time
+     POST /api/requests                 "Request another time": the photographer books it or declines it (Admin)
      GET  /api/bookings/:token          a client's own booking (the token is private, from their link)
      POST /api/bookings/:token/release  the client left checkout without paying: free their time at once
      POST /api/bookings/:token/prep     the prep questionnaire
@@ -50,6 +51,7 @@ const sitemedia = require('./sitemedia');
 const clients = require('./clients');
 const zelle = require('./zelle');
 const inperson = require('./inperson');
+const requests = require('./requests');
 const context = require('./context');
 
 /** How clients can pay right now: card (Stripe set up, or the development stand-in) and/or Zelle. */
@@ -118,6 +120,16 @@ function build() {
     if (!inFlight.has(key)) inFlight.set(key, placeBooking(req.body, key).finally(() => inFlight.delete(key)));
     const out = await inFlight.get(key);
     res.json(out.status, out.body);
+  });
+
+  // "Request another time": a date, time and note for the photographer to book or decline. Nothing is held.
+  r.post('/api/requests', (req, res) => {
+    const pkg = activePackage(req.body.package);
+    if (!pkg) throw new HttpError(404, 'That package isn’t available.');
+    const name = text(req.body.name, 100); const email = text(req.body.email, 200).toLowerCase();
+    if (name.length < 2) throw new HttpError(400, 'Add your name.', { field: 'req-name' });
+    if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Check your email address.', { field: 'req-email' });
+    res.json(200, requests.create(pkg, { date: String(req.body.date || ''), time: String(req.body.time || ''), note: longText(req.body.note, 1000), name, email, phone: text(req.body.phone, 40) }));
   });
 
   // In person: the code from the client's email books their time. Answers { token, checkoutUrl } like a paid booking.
@@ -258,7 +270,10 @@ function build() {
     res.json(200, await require('./demo').reset());
   }));
 
-  r.get('/api/admin/bookings', admin((req, res) => res.json(200, { bookings: bookings.adminList() })));
+  r.get('/api/admin/bookings', admin((req, res) => res.json(200, { bookings: bookings.adminList(), requests: requests.pending() })));
+  r.post('/api/admin/requests/:id/approve', admin((req, res) => res.json(200, { booking: requests.approve(Number(req.params.id), req.body.time) })));
+  r.post('/api/admin/requests/:id/decline', admin((req, res) => res.json(200, requests.decline(Number(req.params.id)))));
+  r.post('/api/admin/requests/:id/undo', admin((req, res) => res.json(200, requests.undo(Number(req.params.id)))));
   r.post('/api/admin/bookings/:id/status', admin((req, res) => res.json(200, { booking: bookings.setStatus(Number(req.params.id), String(req.body.status || '')) })));
   r.post('/api/admin/bookings/:id/deliver', admin((req, res) => res.json(200, bookings.deliver(Number(req.params.id), req.body.galleryUrl))));
   r.post('/api/admin/bookings/:id/cancel', admin((req, res) => res.json(200, bookings.cancel(Number(req.params.id)))));

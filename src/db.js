@@ -131,6 +131,22 @@ CREATE TABLE IF NOT EXISTS email_checks (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS email_checks_email ON email_checks(email, created_at);
+-- A client asking for a time outside sunrise and sunset (requests.js). Nothing is held until the photographer books it.
+CREATE TABLE IF NOT EXISTS time_requests (
+  id INTEGER PRIMARY KEY,
+  package_id INTEGER NOT NULL REFERENCES packages(id),
+  local_date TEXT NOT NULL,
+  local_time TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  client_name TEXT NOT NULL,
+  client_email TEXT NOT NULL,
+  client_phone TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  booking_id INTEGER,
+  note_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS idempotency (
   key TEXT PRIMARY KEY,
   status INTEGER NOT NULL,

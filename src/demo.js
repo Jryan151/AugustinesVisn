@@ -7,7 +7,8 @@
      - an open offer (a package made for one client)
      - a booking at every stage: waiting on a Zelle deposit, booked (card), booked in person, prepped, shot, editing,
        delivered and locked (balance due), delivered and paid, needs refund, cancelled
-     - a returning client with private notes, and the emails those bookings would have sent
+     - a returning client with private notes, a request for a time outside sunrise and sunset, and the emails those
+       bookings would have sent
    Every date is worked out from today, so the demo always looks current. The photos are made with ffmpeg (plain warm
    gradients, no one's real work) and go through the same upload code as real ones; without ffmpeg there are no photos.
    It runs only inside a demo request, and refuses otherwise: the real site's data is never touched.
@@ -48,7 +49,7 @@ async function reset() {
   // Twice-checked: inside the demo, and pointed at the demo's own folders. The real site's files are never touched.
   if (!context.isDemo() || !config.galleryDir.startsWith(config.demoDir) || !config.mediaDir.startsWith(config.demoDir)) throw new Error('demo.reset() runs only in the demo.');
   // Start clean: the demo's own data only (config points every folder at the demo's directory).
-  for (const t of ['photos', 'portfolio', 'outbox', 'email_checks', 'idempotency', 'clients', 'bookings']) db.run(`DELETE FROM ${t}`);
+  for (const t of ['photos', 'portfolio', 'outbox', 'email_checks', 'idempotency', 'clients', 'time_requests', 'bookings']) db.run(`DELETE FROM ${t}`);
   // The packages go back to the starting three (a visitor may have edited or added some).
   db.run('DELETE FROM packages');
   for (const p of db.SEED_PACKAGES) {
@@ -101,6 +102,10 @@ async function reset() {
     before: insert({ pkg: pkgs.portrait, days: -150, status: 'delivered', balancePaid: 140, name: 'Ezra Patel', email: 'ezra@demo.example', bookedDaysAgo: 170 }),
     again: insert({ pkg: pkgs.automotive, days: 16, status: 'booked', name: 'Ezra Patel', email: 'ezra@demo.example', bookedDaysAgo: 2 }),
   };
+  // Someone who can't make sunrise or sunset, asking for a midday time: waiting at the top of the board.
+  db.run(`INSERT INTO time_requests (package_id, local_date, local_time, note, client_name, client_email, client_phone, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?)`, [pkgs.portrait.id, availability.addDays(availability.localDate(new Date()), 7), '12:30',
+    'Lunch break is my only free time that week. Downtown, by the Luhrs Tower?', 'Lena Ortiz', 'lena@demo.example', '602-555-0188', iso(now - 3 * 3600000), iso(now - 3 * 3600000)]);
   db.run("INSERT INTO clients (email, notes, updated_at) VALUES ('ezra@demo.example', 'Second session. Loved the moody edits last time; brings his dog. Referred Priya.', ?)", [iso(now)]);
   db.run('UPDATE bookings SET ref_code = ? WHERE id = ?', ['AV' + crypto.randomBytes(2).toString('hex').toUpperCase(), made.locked.id]);
 

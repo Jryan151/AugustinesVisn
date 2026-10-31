@@ -47,6 +47,26 @@
           <button class="btn btn-text" type="button" data-back="1">← Packages</button>
           <button class="btn" type="button" id="more-days" hidden>Show later dates</button>
         </div>
+        <!-- Outside sunrise and sunset: a request the photographer books or declines. Nothing is held or paid. -->
+        <div class="request-time">
+          <button class="btn btn-text" type="button" id="ask-time" aria-expanded="false" aria-controls="request-form">None of these work? Request another time</button>
+          <form id="request-form" novalidate hidden>
+            <p class="muted">Ask for the day and time you’d like. Nothing is held or paid now: you’ll get an email once it’s booked.</p>
+            <div class="error-box" id="request-error" role="alert" hidden></div>
+            <div class="row">
+              <div class="field"><label for="req-date">Date</label><input id="req-date" name="date" type="date" required></div>
+              <div class="field"><label for="req-time">Start time</label><input id="req-time" name="time" type="time" step="900" required></div>
+            </div>
+            <div class="field"><label for="req-name">Name</label><input id="req-name" name="name" type="text" autocomplete="name" required maxlength="100"></div>
+            <div class="row">
+              <div class="field"><label for="req-email">Email</label><input id="req-email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="200"></div>
+              <div class="field"><label for="req-phone">Phone <span class="hint">(optional)</span></label><input id="req-phone" name="phone" type="tel" autocomplete="tel" maxlength="40"></div>
+            </div>
+            <div class="field"><label for="req-note">Anything I should know? <span class="hint">(optional)</span></label><textarea id="req-note" name="note" maxlength="1000"></textarea></div>
+            <button class="btn btn-primary" type="submit" id="req-send">Send request</button>
+          </form>
+          <div id="request-done" role="status" hidden></div>
+        </div>
       </section>
 
       <!-- Step 3 -->

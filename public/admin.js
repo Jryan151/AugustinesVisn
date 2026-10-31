@@ -31,7 +31,7 @@
   ];
   const PREP_LABELS = { location: 'Location', look: 'Look', who: 'Who / what', references: 'References', other: 'Other' };
   const STAGES = { upcoming: 'Upcoming', editing: 'Editing', delivered: 'Delivered', past: 'Past' };
-  let bookings = [];
+  let bookings = []; let timeRequests = [];
 
   /* ---------- login ---------- */
   async function boot() {
@@ -103,18 +103,37 @@
      Bookings
      ====================================================================== */
   async function loadBoard() {
-    try { bookings = (await api('/api/admin/bookings')).bookings; renderBoard(); } catch (e) { handle(e); }
+    try { const d = await api('/api/admin/bookings'); bookings = d.bookings; timeRequests = d.requests || []; renderBoard(); } catch (e) { handle(e); }
   }
 
   function renderBoard() {
     const recent = Date.now() - 30 * 86400000;
-    $('board').innerHTML = COLUMNS.map(([status, title]) => {
+    // Time requests first: someone asked for a time outside sunrise and sunset, and is waiting for an answer.
+    const asks = timeRequests.length ? `<div class="col"><h3><span>Time requests</span><span class="num">${timeRequests.length}</span></h3>${timeRequests.map(requestCard).join('')}</div>` : '';
+    $('board').innerHTML = asks + COLUMNS.map(([status, title]) => {
       let items = bookings.filter((b) => b.status === status);
       if (status === 'delivered') items = items.filter((b) => new Date(b.delivered_at) > recent).reverse();
       if ((status === 'needs_refund' || status === 'hold') && !items.length) return '';
       return `<div class="col"><h3><span>${title}</span><span class="num">${items.length}</span></h3>
         ${items.map(card).join('') || '<p class="muted">Nothing here.</p>'}</div>`;
     }).join('');
+  }
+
+  function requestCard(r) {
+    return `<article class="card attention" data-request="${r.id}">
+      <h4>${esc(r.client_name)}</h4>
+      <div class="meta">${esc(r.package_name)} · asked for ${esc(r.when)}</div>
+      ${r.note ? `<p class="meta">“${esc(r.note)}”</p>` : ''}
+      <details><summary>Details</summary><dl>
+        <dt>Email</dt><dd><a href="mailto:${esc(r.client_email)}">${esc(r.client_email)}</a></dd>
+        ${r.client_phone ? `<dt>Phone</dt><dd><a href="tel:${esc(r.client_phone)}">${esc(r.client_phone)}</a></dd>` : ''}
+      </dl></details>
+      <div class="actions request-actions">
+        <label class="sr-only" for="rt-${r.id}">Start time</label><input id="rt-${r.id}" type="time" step="300" value="${esc(r.local_time)}" data-request-time="${r.id}">
+        <button type="button" class="btn btn-small btn-primary" data-act="req-book" data-id="${r.id}">Book it</button>
+        <button type="button" class="btn btn-small" data-act="req-decline" data-id="${r.id}">Decline</button>
+      </div>
+    </article>`;
   }
 
   function card(b) {
@@ -163,6 +182,16 @@
     if (t.dataset.act === 'photos') return openPhotos(b);
     t.setAttribute('aria-busy', 'true');
     try {
+      if (t.dataset.act === 'req-book' || t.dataset.act === 'req-decline') {
+        const r = timeRequests.find((x) => x.id === id);
+        const book = t.dataset.act === 'req-book';
+        const time = book ? document.querySelector(`[data-request-time="${id}"]`).value : undefined;
+        await api(`/api/admin/requests/${id}/${book ? 'approve' : 'decline'}`, { method: 'POST', body: book ? { time } : {} });
+        await loadBoard();
+        toast(book ? `${r.client_name} is booked. Their confirmation goes out in 10 seconds.` : `Declined. ${r.client_name} is emailed in 10 seconds.`,
+          { ms: 9000, actionLabel: 'Undo', onAction: async () => { try { await api(`/api/admin/requests/${id}/undo`, { method: 'POST', body: {} }); await loadBoard(); toast('Undone. No email was sent.'); } catch (e) { handle(e); } } });
+        return;
+      }
       if (t.dataset.act === 'status') {
         const from = b.status;
         await api(`/api/admin/bookings/${id}/status`, { method: 'POST', body: { status: t.dataset.to } });
