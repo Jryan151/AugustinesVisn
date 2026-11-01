@@ -38,6 +38,11 @@ function createHold({ pkg, slotKey, name, email, phone, notes, method = 'card' }
   expireStaleHolds(now);
   const slot = availability.findSlot(pkg, slotKey, now);
   if (!slot) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
+  // One email can't tie up the calendar: at most a couple of unpaid holds at once (limits.js).
+  const limits = require('./limits');
+  if (limits.state.enforce && db.get("SELECT COUNT(*) n FROM bookings WHERE client_email = ? AND status = 'hold' AND hold_expires_at > ?", [email, now.toISOString()]).n >= limits.MAX_OPEN_HOLDS_PER_EMAIL) {
+    throw new HttpError(429, 'You already have times on hold. Finish paying for one, or wait for it to run out.');
+  }
   const p = availability.parseSlotKey(slotKey);
   const iso = now.toISOString();
   const holdMs = method === 'zelle' ? zelle.settings().holdHours * 3600000 : config.holdMinutes * 60000;

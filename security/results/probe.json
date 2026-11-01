@@ -1,0 +1,234 @@
+{
+  "A0 admin login": 200,
+  "A0 create package": 200,
+  "A1 admin GETs open without login": [],
+  "A1 admin writes open without login": [],
+  "A2 forged/expired cookies (want all 401)": [
+    401,
+    401,
+    401,
+    401
+  ],
+  "A3 dev pay endpoints in prod": [
+    404,
+    404
+  ],
+  "A4 error responses": {
+    "badJson": [
+      400,
+      "That request wasn’t valid JSON."
+    ],
+    "array": [
+      400,
+      "Send a JSON object."
+    ],
+    "huge": [
+      413,
+      "That request is too large."
+    ],
+    "nested": [
+      400,
+      "Send a JSON object."
+    ],
+    "badSlot": [
+      409,
+      "That time was just taken. Pick another one."
+    ]
+  },
+  "A4 stack traces/paths/SQL in responses": 0,
+  "A4 server alive after nested JSON": 200,
+  "A5 secret names in browser files": [
+    "admin.js"
+  ],
+  "A6 login, same address (want 429 after 5)": [
+    401,
+    401,
+    401,
+    401,
+    401,
+    429,
+    429,
+    429
+  ],
+  "A6 login, fake X-Forwarded-For each try": {
+    "tries": 200,
+    "blocked429": 200,
+    "wrong401": 0,
+    "guessesPerMinuteSingleClient": 31662
+  },
+  "A6 login, fake CF-Connecting-IP each try": {
+    "tries": 20,
+    "blocked429": 20
+  },
+  "A7 open slots in 62 days": 74,
+  "A7 code emails to 40 different addresses": {
+    "accepted": 5,
+    "blocked": 35,
+    "booking_code_emails_queued": 5
+  },
+  "A7 code emails to ONE address x6 (want 429 after 3)": [
+    200,
+    200,
+    200,
+    429,
+    429,
+    429
+  ],
+  "A8 wrong code guesses (want 429 after 5)": [
+    400,
+    400,
+    400,
+    400,
+    400,
+    429,
+    429,
+    429
+  ],
+  "A9 time requests from 30 addresses": {
+    "accepted": 5,
+    "statuses": [
+      200,
+      429
+    ],
+    "admin_emails_queued": 5
+  },
+  "A10 turn on Zelle (admin)": 200,
+  "A10 Zelle hold squatting": {
+    "slotsBefore": 74,
+    "holdsAccepted": 5,
+    "slotsLeftForRealClients": 65,
+    "holdLengthHours": 24,
+    "zelle_emails_to_strangers": 5
+  },
+  "A10 \"zelle-sent\" stretches hold to": "2026-11-03T01:16:01.158Z",
+  "A11 guessed booking tokens": [
+    404,
+    404,
+    404,
+    404
+  ],
+  "A11 token length (chars, ~bits)": [
+    24,
+    144
+  ],
+  "A11 fields a client sees on their booking": [
+    "status",
+    "package",
+    "period",
+    "start",
+    "end",
+    "when",
+    "name",
+    "depositCents",
+    "balanceCents",
+    "prepped",
+    "prep",
+    "galleryUrl",
+    "unlocked",
+    "payMethod",
+    "ref",
+    "holdExpiresAt",
+    "zelleSent",
+    "balanceZelleSent",
+    "zelle"
+  ],
+  "B1 upload types (admin)": {
+    "text.js": [
+      415,
+      "Only JPG, PNG or WebP photos. (iPhone HEIC: export as JPG first.)"
+    ],
+    "page.html": [
+      415,
+      "Only JPG, PNG or WebP photos. (iPhone HEIC: export as JPG first.)"
+    ],
+    "inert.svg": [
+      415,
+      "Only JPG, PNG or WebP photos. (iPhone HEIC: export as JPG first.)"
+    ],
+    "fake.jpg": [
+      415,
+      "Only JPG, PNG or WebP photos. (iPhone HEIC: export as JPG first.)"
+    ],
+    "polyglot.jpg": [
+      200,
+      "stored"
+    ],
+    "real.jpg": [
+      200,
+      "stored"
+    ]
+  },
+  "B2 how stored uploads are served": [
+    [
+      "/media/<random>-O70Cceh.jpg",
+      200,
+      "image/jpeg",
+      "nosniff"
+    ],
+    [
+      "/media/<random>-bfoEtoI7-web.jpg",
+      200,
+      "image/jpeg",
+      "nosniff"
+    ]
+  ],
+  "B3 traversal name upload": {
+    "status": 200,
+    "fileWrittenOutsideFolder": false
+  },
+  "B4 reading files outside public/": [
+    [
+      "/../server.js",
+      404
+    ],
+    [
+      "/%2e%2e/server.js",
+      404
+    ],
+    [
+      "/..%2fserver.js",
+      404
+    ],
+    [
+      "/media/..%2f..%2fbooking.sqlite",
+      404
+    ],
+    [
+      "/.env",
+      404
+    ],
+    [
+      "/../.env",
+      404
+    ],
+    [
+      "/%2e%2e%2f.env",
+      404
+    ]
+  ],
+  "B5 61 MB upload": 413,
+  "B6 anonymous 20 MB upload": {
+    "status": 401,
+    "ms": 245
+  },
+  "serverLogTail": [
+    "Error while filtering: Invalid data found when processing input",
+    "[vist#0:0/mjpeg @ 0x5603d0c7d280] Decode error rate 1 exceeds maximum 0.666667",
+    "Error while filtering: Invalid data found when processing input",
+    "[vist#0:0/mjpeg @ 0x5562f016c280] Decode error rate 1 exceeds maximum 0.666667"
+  ],
+  "C0 setup (uploads, deliver)": [
+    200,
+    200,
+    200
+  ],
+  "C1 unpaid gallery gate": {
+    "originalUnpaid": 402,
+    "zipUnpaid": 402,
+    "webUnpaid": 200,
+    "proofDiffersFromClean": true
+  },
+  "C2 client one asks for client two's photo": 404,
+  "C3 dev copy: client unlocks own photos via dev link": 200,
+  "C4 admin.js renders text via esc()": true
+}

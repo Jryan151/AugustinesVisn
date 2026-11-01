@@ -49,12 +49,18 @@ function parseCookies(req) {
 }
 
 /** Reads the request body (up to `limit` bytes). Keeps the raw text: Stripe's signature is checked against it. */
+/* Too large: answer 413 straight away and let the rest of the body drain unread, so the sender sees a clean answer
+   instead of a cut connection. Past a few MB of draining, the connection is closed anyway. */
+const DRAIN_MAX = 8 * 1024 * 1024;
 function readBody(req, limit = 64 * 1024) {
   return new Promise((resolve, reject) => {
-    let size = 0; const chunks = [];
+    let size = 0; const chunks = []; let tooBig = false;
+    const refuse = () => { tooBig = true; chunks.length = 0; reject(new HttpError(413, 'That request is too large.')); };
+    if (Number(req.headers['content-length'] || 0) > limit) refuse();
     req.on('data', (c) => {
       size += c.length;
-      if (size > limit) { reject(new HttpError(413, 'That request is too large.')); req.destroy(); return; }
+      if (tooBig) { if (size > limit + DRAIN_MAX) req.destroy(); return; }
+      if (size > limit) { refuse(); return; }
       chunks.push(c);
     });
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));

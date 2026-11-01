@@ -74,6 +74,10 @@ In `/srv/booking/.env` (`sudo nano /srv/booking/.env`):
 
 Then: `sudo runuser -u booking -- pm2 restart booking --update-env`
 
+Use a **restricted** Stripe key for the live one (Stripe → Developers → API keys → Create restricted key): give it
+**Checkout Sessions: Write** and nothing else. The site only ever starts checkouts, so a leaked restricted key can't
+refund, pay out or read your customers. Turn on Stripe's email alerts for disputes and refunds too.
+
 Until a Stripe key is set, booking is closed on the live site with a polite message (it never pretends to take money).
 
 ## Updating to a new version
@@ -86,6 +90,26 @@ on installs from before photos existed.
 
 Recommended once: `sudo apt install -y ffmpeg` (likely already there for the generator). With it, uploaded photos get
 small web copies so pages load fast; without it, the full-size photo is shown everywhere.
+
+## Security: what's in place, and what to do if something leaks
+The site limits how often one visitor can use the public forms (bookings, codes, time requests, login), so a script
+can't email strangers from your domain, fill the calendar with fake holds, or guess the Admin password. Details in
+`src/limits.js` and `src/auth.js`; `node security/probe.js` checks it all on a throwaway local copy.
+
+- **Admin password leaked, or a phone lost:** change `ADMIN_PASSWORD` in `.env` and restart. Every device is logged
+  out at once.
+- **Someone guessing the password:** after 30 wrong tries in 15 minutes the login pauses for 15 minutes and you get
+  an email. Your own logged-in phone keeps working.
+- **A Stripe or Resend key leaked:** make a new key in that dashboard and delete the old one *first*, then put the new
+  one in `.env` and restart.
+- Check once: `sudo grep -E '^(NODE_ENV|SESSION_SECRET)=' /srv/booking/.env` shows `NODE_ENV=production` and a long
+  `SESSION_SECRET`. (Since this update, the test-only shortcuts stay off on any https address even without it.)
+
+**Optional, for installs from before Nov 2026:** new installs also get rate limits in nginx itself, a first wall in
+front of the app. To add them to an existing install, copy the `limit_req_zone`, `set_real_ip_from`/`real_ip_header`,
+`limit_req_status` lines and the two `location` blocks from `deploy/nginx-booking.conf` into
+`/etc/nginx/sites-available/booking` (inside every `server` block that has `proxy_pass`), then
+`sudo nginx -t && sudo systemctl reload nginx`. Not needed for the app's own limits to work.
 
 ## Photos and disk space
 Client photos live in `/srv/booking/data/galleries/`, site photos in `/srv/booking/data/media/`. Full-size photos add

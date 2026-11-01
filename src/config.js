@@ -26,10 +26,14 @@ if (process.env.NODE_ENV !== 'test') loadEnvFile(path.join(__dirname, '..', '.en
 const env = (k, d) => (process.env[k] !== undefined && process.env[k] !== '' ? process.env[k] : d);
 const isProd = env('NODE_ENV', 'development') === 'production';
 const isTest = env('NODE_ENV', '') === 'test';
+// A site on an https address is live, whatever NODE_ENV says: the test-only shortcuts (the "admin" password, the
+// pretend-paid links) never work there, even if NODE_ENV=production was left out of .env.
+const isLive = isProd || /^https:\/\//i.test(env('BASE_URL', ''));
 
 const config = {
   isProd,
   isTest,
+  isLive,
   port: parseInt(env('PORT', '3000'), 10),
   // Listen on this machine only: nginx (or Caddy) in front is the only way in.
   host: env('HOST', '127.0.0.1'),
@@ -38,7 +42,7 @@ const config = {
   baseUrl: env('BASE_URL', 'http://localhost:3000').replace(/\/+$/, ''),
   businessName: env('BUSINESS_NAME', 'Augustines.Visn'),
   adminEmail: env('ADMIN_EMAIL', ''),
-  adminPassword: env('ADMIN_PASSWORD', isProd ? '' : 'admin'),
+  adminPassword: env('ADMIN_PASSWORD', isLive ? '' : 'admin'),
   sessionSecret: env('SESSION_SECRET', crypto.randomBytes(32).toString('hex')),
   latitude: parseFloat(env('LATITUDE', '33.4484')),
   longitude: parseFloat(env('LONGITUDE', '-112.0740')),
@@ -71,8 +75,13 @@ for (const key of ['mediaDir', 'galleryDir', 'backupDir']) {
   Object.defineProperty(config, key, { enumerable: true, get: () => (context.isDemo() ? demo : real) });
 }
 
-if (isProd && !config.adminPassword) {
+if (isLive && !config.adminPassword) {
   console.warn('ADMIN_PASSWORD is not set, so the admin page can’t be opened. Set it in .env.');
+} else if (isLive && (config.adminPassword.length < 12 || /^(admin|password)/i.test(config.adminPassword))) {
+  console.warn('ADMIN_PASSWORD is short or easy to guess. Use 12+ random characters (openssl rand -base64 18), then restart.');
+}
+if (isLive && !process.env.SESSION_SECRET) {
+  console.warn('SESSION_SECRET is not set: Admin logs out at every restart and Zelle Confirm links stop working. Set it in .env.');
 }
 
 module.exports = config;
