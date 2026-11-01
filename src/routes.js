@@ -53,6 +53,7 @@ const zelle = require('./zelle');
 const inperson = require('./inperson');
 const requests = require('./requests');
 const context = require('./context');
+const limits = require('./limits');
 
 /** How clients can pay right now: card (Stripe set up, or the development stand-in) and/or Zelle. */
 const methods = () => ({ card: payments.enabled() || payments.devMode(), zelle: zelle.enabled(), inPerson: inperson.enabled() });
@@ -117,7 +118,7 @@ function build() {
     if (!/^[A-Za-z0-9-]{16,100}$/.test(key)) throw new HttpError(400, 'Missing Idempotency-Key.');
     const done = bookings.recall('book:' + key);
     if (done) return res.json(done.status, done.body);
-    if (!inFlight.has(key)) inFlight.set(key, placeBooking(req.body, key).finally(() => inFlight.delete(key)));
+    if (!inFlight.has(key)) inFlight.set(key, placeBooking(req.body, key, req).finally(() => inFlight.delete(key)));
     const out = await inFlight.get(key);
     res.json(out.status, out.body);
   });
@@ -129,6 +130,7 @@ function build() {
     const name = text(req.body.name, 100); const email = text(req.body.email, 200).toLowerCase();
     if (name.length < 2) throw new HttpError(400, 'Add your name.', { field: 'req-name' });
     if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Check your email address.', { field: 'req-email' });
+    limits.check('requests', req, 'You’ve sent a few requests already. The photographer will be in touch, or email to ask.');
     res.json(200, requests.create(pkg, { date: String(req.body.date || ''), time: String(req.body.time || ''), note: longText(req.body.note, 1000), name, email, phone: text(req.body.phone, 40) }));
   });
 
@@ -261,7 +263,7 @@ function build() {
   r.post('/api/admin/demo', admin(async (req, res) => {
     const on = req.body.on === true;
     if (on) await context.run(true, () => require('./demo').prepare());
-    res.setHeader('Set-Cookie', `av_demo=${on ? '1' : ''}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${on ? 12 * 3600 : 0}${config.isProd ? '; Secure' : ''}`);
+    res.setHeader('Set-Cookie', `av_demo=${on ? '1' : ''}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${on ? 12 * 3600 : 0}${config.isLive ? '; Secure' : ''}`);
     res.json(200, { demo: on });
   }));
   // Puts every sample booking, photo and setting back as it started. Only from inside the demo.
@@ -386,7 +388,7 @@ function zelleAdmin() {
 }
 
 /** Holds the time, then starts Stripe checkout. Returns { status, body } and remembers it under the request key. */
-async function placeBooking(body, key) {
+async function placeBooking(body, key, req) {
   const pkg = activePackage(body.package);
   if (!pkg) return { status: 404, body: { error: 'That package isn’t available.' } };
   const name = text(body.name, 100);
@@ -400,6 +402,12 @@ async function placeBooking(body, key) {
   const KEY = { card: 'card', zelle: 'zelle', in_person: 'inPerson' };
   const method = KEY[body.method] ? body.method : can.card ? 'card' : can.zelle ? 'zelle' : 'in_person';
   if (!can[KEY[method]]) return { status: 503, body: { error: can.card || can.zelle || can.inPerson ? 'That way of paying isn\u2019t available. Pick another.' : 'Booking isn\u2019t open yet. Please email to book.' } };
+  // Caps far above a real client (limits.js): only scripts hit them. A replay of the same Idempotency-Key never gets here.
+  try {
+    limits.check('bookings', req);
+    if (method === 'in_person') limits.check('codes', req, 'Too many booking codes from this connection. Use the newest one, or wait an hour.');
+  } catch (e) { return { status: e.status, body: { error: e.message } }; }
+  if (method !== 'in_person' && limits.full('holds', req)) return { status: 429, body: { error: 'You\u2019ve started several bookings today. Finish one, or email to book.' } };
 
   // In person: nothing is held until the client types the code from their email.
   if (method === 'in_person') {
@@ -417,6 +425,7 @@ async function placeBooking(body, key) {
     if (e instanceof HttpError) return { status: e.status, body: Object.assign({ error: e.message }, e.extra) };
     throw e;
   }
+  limits.record('holds', req);
   // Zelle: no checkout. The client goes to their booking page, which shows who to pay and the memo reference.
   if (method === 'zelle') {
     const out = { status: 200, body: { token: hold.token, checkoutUrl: `/booked?b=${hold.token}`, holdExpiresAt: hold.hold_expires_at, method } };

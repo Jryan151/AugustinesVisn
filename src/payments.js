@@ -38,7 +38,7 @@ async function stripe(method, pathname, params, idempotencyKey) {
 // The demo never takes real money: Stripe is off there, whatever the keys say.
 const enabled = () => !require('./context').isDemo() && (!!config.stripeSecretKey);
 // The pretend checkout: while building, and always in the demo (which never takes real money).
-const devMode = () => !enabled() && (!config.isProd || require('./context').isDemo());
+const devMode = () => !enabled() && (!config.isLive || require('./context').isDemo());
 
 /**
  * Starts payment of the deposit. Returns { url, sessionId } — url is where to send the client.
