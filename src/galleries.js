@@ -65,9 +65,10 @@ function purgeDeleted(now = new Date()) {
 
 /** The booking whose gallery this token opens, if the client may see it yet (only once delivered). */
 function openGallery(token) {
-  const b = /^[A-Za-z0-9_-]{16,64}$/.test(String(token || '')) ? db.get('SELECT * FROM bookings WHERE token = ?', [token]) : null;
+  const bookings = require('./bookings'); // required here: bookings.js needs this module too
+  const b = bookings.byToken(token);
   if (!b || b.status !== 'delivered' || !count(b.id)) throw new HttpError(404, 'This gallery isn’t ready yet.');
-  b.locked = !require('./bookings').isUnlocked(b); // balance not paid: proofs only, no downloads
+  b.locked = !bookings.isUnlocked(b); // balance not paid: proofs only, no downloads
   return b;
 }
 
@@ -148,4 +149,4 @@ async function sendZip(res, booking, zipName) {
   res.end(end);
 }
 
-module.exports = { proofs, list, count, add, remove, restore, purgeDeleted, openGallery, sendPhoto, sendZip, dirFor };
+module.exports = { list, count, add, remove, restore, purgeDeleted, openGallery, sendPhoto, sendZip, dirFor };

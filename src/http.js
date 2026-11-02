@@ -16,16 +16,15 @@ class HttpError extends Error {
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp', '.mp4': 'video/mp4', '.webm': 'video/webm', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
+  '.webp': 'image/webp', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
 };
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'inline-speculation-rules'",
+  "script-src 'self'",
   "style-src 'self'",
   "font-src 'self'",
   "img-src 'self' data: https:",
-  "media-src 'self' https:",
   "connect-src 'self'",
   "form-action 'self' https://checkout.stripe.com",
   "frame-ancestors 'none'",
@@ -101,7 +100,7 @@ function createRouter() {
         if (!m) continue;
         req.params = {}; r.names.forEach((n, i) => { req.params[n] = decodeURIComponent(m[i + 1]); });
         req.query = Object.fromEntries(url.searchParams);
-        req.cookies = parseCookies(req);
+        if (!req.cookies) req.cookies = parseCookies(req); // server.js has usually read them already
         if (r.stream) req.body = {}; // the handler reads the upload itself, straight to disk
         else if (req.method !== 'GET' && req.method !== 'HEAD') {
           req.rawBody = await readBody(req, r.bodyLimit);
@@ -119,7 +118,7 @@ function createRouter() {
   return router;
 }
 
-/** Serves files from `dir`. HTML is never cached (so changes show at once); CSS and JS for an hour; media for 30 days. */
+/** Serves files from `dir`. Pages are always checked; stamped scripts and styles kept a year; fonts and images 30 days. */
 function serveStatic(dir, req, res, rewrites) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
   let pathname = decodeURIComponent(new URL(req.url, 'http://local').pathname);
@@ -133,26 +132,11 @@ function serveStatic(dir, req, res, rewrites) {
   const ext = path.extname(file).toLowerCase();
   res.setHeader('Content-Type', TYPES[ext] || 'application/octet-stream');
   // Scripts and styles: kept for a year when the page asked with its build stamp (?v=…, a new one every update);
-  // otherwise checked every time. Pages are always checked.
+  // otherwise checked every time.
   const stamped = /[?&]v=[0-9a-f]+/.test(req.url);
-  res.setHeader('Cache-Control', ext === '.html' ? 'no-cache' : /\.(mp4|webm|jpg|jpeg|png|webp|ttf|woff2)$/.test(ext) ? 'public, max-age=2592000'
+  res.setHeader('Cache-Control', ext === '.html' ? 'no-cache' : /\.(jpg|jpeg|png|webp|ttf|woff2)$/.test(ext) ? 'public, max-age=2592000'
     : stamped ? 'public, max-age=31536000, immutable' : 'no-cache');
-  // Video needs byte ranges, or Safari won't play it.
-  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
-  if (range && (ext === '.mp4' || ext === '.webm')) {
-    const start = range[1] ? parseInt(range[1], 10) : 0;
-    const end = range[2] ? Math.min(parseInt(range[2], 10), st.size - 1) : st.size - 1;
-    if (start > end || start >= st.size) { res.statusCode = 416; res.setHeader('Content-Range', `bytes */${st.size}`); res.end(); return true; }
-    res.statusCode = 206;
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Content-Range', `bytes ${start}-${end}/${st.size}`);
-    res.setHeader('Content-Length', end - start + 1);
-    if (req.method === 'HEAD') { res.end(); return true; }
-    fs.createReadStream(file, { start, end }).pipe(res);
-    return true;
-  }
   res.setHeader('Content-Length', st.size);
-  if (ext === '.mp4' || ext === '.webm') res.setHeader('Accept-Ranges', 'bytes');
   if (req.method === 'HEAD') { res.end(); return true; }
   fs.createReadStream(file).pipe(res);
   return true;

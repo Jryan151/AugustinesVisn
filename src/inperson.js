@@ -80,4 +80,4 @@ function verify(token, code, now = new Date()) {
 /** Old code requests (over a day) are cleared by the job loop. */
 const purge = (now = new Date()) => db.run('DELETE FROM email_checks WHERE created_at < ?', [new Date(now.getTime() - 86400000).toISOString()]).changes;
 
-module.exports = { enabled, settings, saveSettings, start, verify, purge, CODE_MINUTES };
+module.exports = { enabled, settings, saveSettings, start, verify, purge };

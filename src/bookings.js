@@ -7,7 +7,8 @@
      expired ──(a late payment arrives, but the time went to someone else)──> needs_refund
 
    Rules that hold everywhere:
-   - Only Stripe's webhook makes a booking paid (markPaid). Nothing the client's browser says can.
+   - Only a trusted source makes a booking paid: Stripe's signed webhook, the photographer's Zelle Confirm, or (in
+     person) the code from the client's email. Nothing the client's browser says can.
    - One live booking per time: checked here, enforced by the database's unique index.
    - Every email goes through the outbox (mail.queue), at most once per kind per booking.
    ===================================================================== */
@@ -24,12 +25,29 @@ const UNDO_MS = 10000; // how long an emailing action waits, so Undo can take it
 const byId = (id) => db.get('SELECT * FROM bookings WHERE id = ?', [id]);
 const byToken = (token) => (/^[A-Za-z0-9_-]{16,64}$/.test(String(token || '')) ? db.get('SELECT * FROM bookings WHERE token = ?', [token]) : undefined);
 const isUniqueClash = (e) => /UNIQUE constraint failed: bookings/.test(String(e && e.message));
+const SLOT_TAKEN = 'That time was just taken. Pick another one.';
+
+/**
+ * Writes a new booking (every way one is made: a hold, an in-person code, a request the photographer booked).
+ * `fields` are column → value; the private token is made here. If the database says the time is already live,
+ * throws 409 with `clash`, so two bookings can never share a time.
+ */
+function insertBooking(fields, clash = SLOT_TAKEN) {
+  const cols = Object.keys(fields);
+  try {
+    const r = db.run(`INSERT INTO bookings (token, ${cols.join(', ')}) VALUES (?, ${cols.map(() => '?').join(', ')})`,
+      [crypto.randomBytes(18).toString('base64url'), ...cols.map((k) => fields[k])]);
+    return byId(r.lastInsertRowid);
+  } catch (e) {
+    if (isUniqueClash(e)) throw new HttpError(409, clash, { code: 'slot_taken' });
+    throw e;
+  }
+}
 
 function expireStaleHolds(now = new Date()) {
   return db.run("UPDATE bookings SET status = 'expired', updated_at = ? WHERE status = 'hold' AND hold_expires_at < ?", [now.toISOString(), now.toISOString()]).changes;
 }
 
-/** Holds a time for a client while they pay. Throws 409 if the time can't be had any more. */
 /**
  * Holds a time for a client while they pay. `method` is 'card' (Stripe: held 30 minutes) or 'zelle' (held for the
  * photographer's Zelle hold time, since each Zelle payment is checked by hand). Throws 409 if the time is gone.
@@ -41,18 +59,13 @@ function createHold({ pkg, slotKey, name, email, phone, notes, method = 'card' }
   const p = availability.parseSlotKey(slotKey);
   const iso = now.toISOString();
   const holdMs = method === 'zelle' ? zelle.settings().holdHours * 3600000 : config.holdMinutes * 60000;
-  try {
-    const r = db.run(`INSERT INTO bookings (token, package_id, slot_key, local_date, period, start_at, end_at, status, client_name, client_email,
-        client_phone, notes, price_cents, deposit_cents, hold_expires_at, pay_method, created_at, updated_at) VALUES (?,?,?,?,?,?,?, 'hold', ?,?,?,?,?,?,?,?,?,?)`,
-      [crypto.randomBytes(18).toString('base64url'), pkg.id, slotKey, p.date, p.period, slot.start, slot.end, name, email, phone, notes,
-        pkg.price_cents, pkg.deposit_cents, new Date(now.getTime() + holdMs).toISOString(), method, iso, iso]);
-    const b = byId(r.lastInsertRowid);
-    if (method === 'zelle') { zelle.refFor(b); mail.queue('zelle_deposit', byId(b.id)); }
-    return byId(b.id);
-  } catch (e) {
-    if (isUniqueClash(e)) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
-    throw e;
-  }
+  const b = insertBooking({ package_id: pkg.id, slot_key: slotKey, local_date: p.date, period: p.period, start_at: slot.start, end_at: slot.end,
+    status: 'hold', client_name: name, client_email: email, client_phone: phone, notes, price_cents: pkg.price_cents, deposit_cents: pkg.deposit_cents,
+    hold_expires_at: new Date(now.getTime() + holdMs).toISOString(), pay_method: method, created_at: iso, updated_at: iso });
+  if (method !== 'zelle') return b;
+  zelle.refFor(b);
+  mail.queue('zelle_deposit', byId(b.id));
+  return byId(b.id);
 }
 
 /**
@@ -62,22 +75,15 @@ function createHold({ pkg, slotKey, name, email, phone, notes, method = 'card' }
 function createInPerson({ pkg, slotKey, name, email, phone, notes }, now = new Date()) {
   expireStaleHolds(now);
   const slot = availability.findSlot(pkg, slotKey, now);
-  if (!slot) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
+  if (!slot) throw new HttpError(409, SLOT_TAKEN, { code: 'slot_taken' });
   const p = availability.parseSlotKey(slotKey);
   const iso = now.toISOString();
-  try {
-    const r = db.run(`INSERT INTO bookings (token, package_id, slot_key, local_date, period, start_at, end_at, status, client_name, client_email,
-        client_phone, notes, price_cents, deposit_cents, pay_method, created_at, updated_at) VALUES (?,?,?,?,?,?,?, 'booked', ?,?,?,?,?, 0, 'in_person', ?,?)`,
-      [crypto.randomBytes(18).toString('base64url'), pkg.id, slotKey, p.date, p.period, slot.start, slot.end, name, email, phone || '', notes || '',
-        pkg.price_cents, iso, iso]);
-    const b = byId(r.lastInsertRowid);
-    mail.queue('confirmation', b);
-    mail.queue('admin_new', b);
-    return b;
-  } catch (e) {
-    if (isUniqueClash(e)) throw new HttpError(409, 'That time was just taken. Pick another one.', { code: 'slot_taken' });
-    throw e;
-  }
+  const b = insertBooking({ package_id: pkg.id, slot_key: slotKey, local_date: p.date, period: p.period, start_at: slot.start, end_at: slot.end,
+    status: 'booked', client_name: name, client_email: email, client_phone: phone || '', notes: notes || '', price_cents: pkg.price_cents,
+    deposit_cents: 0, pay_method: 'in_person', created_at: iso, updated_at: iso });
+  mail.queue('confirmation', b);
+  mail.queue('admin_new', b);
+  return b;
 }
 
 /** Gives up a hold whose checkout couldn't be started, so the time is free again at once. */
@@ -295,4 +301,4 @@ function remember(key, status, body) {
   db.run('INSERT OR IGNORE INTO idempotency (key, status, body, created_at) VALUES (?,?,?,?)', [key, status, JSON.stringify(body), db.nowIso()]);
 }
 
-module.exports = { createInPerson, confirmZelle, isUnlocked, markBalancePaid, createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };
+module.exports = { insertBooking, createInPerson, confirmZelle, isUnlocked, markBalancePaid, createHold, releaseHold, attachCheckout, markPaid, expireStaleHolds, savePrep, setStatus, deliver, cancel, undo, publicView, adminList, byId, byToken, recall, remember, UNDO_MS };

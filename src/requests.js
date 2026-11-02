@@ -12,15 +12,14 @@
    A booked custom time can't overlap another live booking, and golden-hour times that overlap it stop being offered
    (availability.js), so nothing is ever double-booked. One email can send at most 3 requests a day.
    ===================================================================== */
-const crypto = require('crypto');
 const db = require('./db');
 const mail = require('./mail');
 const config = require('./config');
 const availability = require('./availability');
+const { insertBooking, UNDO_MS } = require('./bookings');
 const { HttpError } = require('./http');
 
 const MAX_PER_DAY = 3;
-const UNDO_MS = 10000; // the same short wait as the photographer's other emailing moves (bookings.js)
 const isTime = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || ''));
 
 /** The moment a local date and time ('YYYY-MM-DD', 'HH:MM') happens in the business's time zone. */
@@ -77,17 +76,10 @@ function approve(id, time) {
   if (clash) throw new HttpError(409, 'That overlaps another booking. Change the time first.');
   const iso = new Date().toISOString();
   return db.tx(() => {
-    let b;
-    try {
-      const out = db.run(`INSERT INTO bookings (token, package_id, slot_key, local_date, period, start_at, end_at, status, client_name, client_email,
-          client_phone, notes, price_cents, deposit_cents, pay_method, created_at, updated_at) VALUES (?,?,?,?,'custom',?,?, 'booked', ?,?,?,?,?, 0, 'in_person', ?,?)`,
-        [crypto.randomBytes(18).toString('base64url'), pkg.id, `${r.local_date}:custom-${hhmm.replace(':', '')}`, r.local_date, start.toISOString(), end.toISOString(),
-          r.client_name, r.client_email, r.client_phone, r.note, pkg.price_cents, iso, iso]);
-      b = db.get('SELECT * FROM bookings WHERE id = ?', [out.lastInsertRowid]);
-    } catch (e) {
-      if (/UNIQUE constraint failed: bookings/.test(e.message)) throw new HttpError(409, 'That time is already booked. Change the time first.');
-      throw e;
-    }
+    const b = insertBooking({ package_id: pkg.id, slot_key: `${r.local_date}:custom-${hhmm.replace(':', '')}`, local_date: r.local_date, period: 'custom',
+      start_at: start.toISOString(), end_at: end.toISOString(), status: 'booked', client_name: r.client_name, client_email: r.client_email,
+      client_phone: r.client_phone, notes: r.note, price_cents: pkg.price_cents, deposit_cents: 0, pay_method: 'in_person', created_at: iso, updated_at: iso },
+    'That time is already booked. Change the time first.');
     db.run("UPDATE time_requests SET status = 'booked', booking_id = ?, local_time = ?, updated_at = ? WHERE id = ?", [b.id, hhmm, iso, id]);
     mail.queue('confirmation', b, { delayMs: UNDO_MS });
     return b;

@@ -98,6 +98,19 @@
     if (f.size > MAX) return 'over 60 MB';
     return '';
   }
+  // Several photos into one place (site photos, a portfolio), one at a time: a bad one is skipped, the rest keep going.
+  // `done(answer)` shows each as it lands.
+  async function uploadEach(files, url, status, done) {
+    const problems = [];
+    for (let i = 0; i < files.length; i++) {
+      const bad = checkFile(files[i]);
+      if (bad) { problems.push(`${files[i].name} (${bad})`); continue; }
+      status.textContent = `Uploading ${i + 1} of ${files.length}…`;
+      try { done(await uploadOne(url, files[i])); }
+      catch (err) { if (err.status === 401) return handle(err); problems.push(`${files[i].name} (${err.message})`); }
+    }
+    status.textContent = problems.length ? `Not uploaded: ${problems.join(', ')}` : 'Done. It’s live on the site.';
+  }
 
   /* ======================================================================
      Bookings
@@ -466,17 +479,9 @@
       }
     } catch (err) { handle(err); }
   });
-  $('bg-input').addEventListener('change', async (e) => {
+  $('bg-input').addEventListener('change', (e) => {
     const files = [...e.target.files]; e.target.value = '';
-    const problems = [];
-    for (let i = 0; i < files.length; i++) {
-      const bad = checkFile(files[i]);
-      if (bad) { problems.push(`${files[i].name} (${bad})`); continue; }
-      $('bg-status').textContent = `Uploading ${i + 1} of ${files.length}…`;
-      try { bgPhotos = (await uploadOne('/api/admin/site/background', files[i])).background; renderSite(); }
-      catch (err) { if (err.status === 401) return handle(err); problems.push(`${files[i].name} (${err.message})`); }
-    }
-    $('bg-status').textContent = problems.length ? `Not uploaded: ${problems.join(', ')}` : 'Done. It’s live on the site.';
+    uploadEach(files, '/api/admin/site/background', $('bg-status'), (out) => { bgPhotos = out.background; renderSite(); });
   });
 
   /* ======================================================================
@@ -612,17 +617,7 @@
     const pf = e.target.closest('[data-pf-input]');
     if (pf) {
       const id = pf.dataset.pfInput; const files = [...pf.files]; pf.value = '';
-      const status = document.querySelector(`[data-pf-status="${id}"]`);
-      const problems = [];
-      for (let i = 0; i < files.length; i++) {
-        const bad = checkFile(files[i]);
-        if (bad) { problems.push(`${files[i].name} (${bad})`); continue; }
-        status.textContent = `Uploading ${i + 1} of ${files.length}…`;
-        try { renderPortfolio(id, (await uploadOne(`/api/admin/packages/${id}/portfolio`, files[i])).photos); }
-        catch (err) { if (err.status === 401) return handle(err); problems.push(`${files[i].name} (${err.message})`); }
-      }
-      status.textContent = problems.length ? `Not uploaded: ${problems.join(', ')}` : 'Done. It’s live on the site.';
-      return;
+      return uploadEach(files, `/api/admin/packages/${id}/portfolio`, document.querySelector(`[data-pf-status="${id}"]`), (out) => renderPortfolio(id, out.photos));
     }
     const input = e.target.closest('[data-pkg-image]'); if (!input || !input.files[0]) return;
     const file = input.files[0]; const id = input.dataset.pkgImage;

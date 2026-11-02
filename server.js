@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   server.js — starts the site: the API, the pages, and the once-a-minute jobs.
+   server.js — starts the site: the API, the pages, and the background jobs (jobs.js).
 
    Run: npm start  (or npm run dev to restart on every save). Needs Node 22.13+ for its built-in SQLite.
    ===================================================================== */

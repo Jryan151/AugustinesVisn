@@ -20,4 +20,4 @@ const FIELDS = ['summary', 'minutes', 'photos', 'turnaround_days', 'price_cents'
 /** The suggested details for a package, by its name (any case), or null if there's no suggestion for it. */
 const forName = (name) => FILL[String(name || '').trim().toLowerCase()] || null;
 
-module.exports = { FILL, FIELDS, forName };
+module.exports = { FIELDS, forName };

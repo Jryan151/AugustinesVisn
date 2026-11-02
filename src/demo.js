@@ -15,7 +15,6 @@
    normal upload code; the sample clients' galleries always use those.
    It runs only inside a demo request, and refuses otherwise: the real site's data is never touched.
    ===================================================================== */
-const { execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -23,6 +22,7 @@ const config = require('./config');
 const db = require('./db');
 const availability = require('./availability');
 const context = require('./context');
+const media = require('./media');
 const { forName } = require('./packagefill');
 
 const DAY = 86400000;
@@ -30,9 +30,9 @@ const tok = () => crypto.randomBytes(18).toString('base64url');
 
 /** A photo made on the spot: a soft gradient in sunset colours. Returns the file, or null without ffmpeg. */
 function makePhoto(file, seed, w = 1800, h = 1200) {
-  return new Promise((resolve) => execFile(config.ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi',
-    '-i', `gradients=s=${w}x${h}:seed=${seed}:c0=0x2a1a12:c1=0xe8a35a:c2=0x6b3a2a:c3=0x1b1f2e:nb_colors=4`, '-frames:v', '1', '-q:v', '4', file],
-  { timeout: 60000 }, (e) => resolve(e ? null : file)));
+  return media.ffmpeg(['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi',
+    '-i', `gradients=s=${w}x${h}:seed=${seed}:c0=0x2a1a12:c1=0xe8a35a:c2=0x6b3a2a:c3=0x1b1f2e:nb_colors=4`, '-frames:v', '1', '-q:v', '4', file], 60000)
+    .then(() => file, () => null);
 }
 /** A stored file handed to the real upload code, as if it came from the browser. */
 function asUpload(file, name = path.basename(file)) {

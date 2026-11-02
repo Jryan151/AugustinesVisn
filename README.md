@@ -58,8 +58,9 @@ sees the real site. Its own database and photos (`data/demo/`), no email sent, n
 ## Things that can't go wrong
 - **No double bookings.** The time check and the hold happen together, and the database allows one live booking per time.
 - **No double charges.** "Pay deposit" sends an Idempotency-Key; a retry or double tap gets the same booking back.
-- **Only Stripe marks a booking paid**, through its signed webhook. A late payment for a time someone else took
-  becomes "Needs attention" (refund it), never a second booking.
+- **Only a trusted source marks a booking paid**: Stripe's signed webhook, the photographer's Zelle Confirm, or (in
+  person) the code from the client's email. A late payment for a time someone else took becomes "Needs attention"
+  (refund it), never a second booking.
 - **Each email goes once.** Every email is queued in an outbox that allows one of each kind per booking.
 
 ## Going live
@@ -76,22 +77,30 @@ Refunds are done in the Stripe dashboard.
 
 ## Layout
 ```
-server.js            starts everything; serves pages; injects the home background
+server.js            starts everything; serves the pages (with the background and build stamp filled in)
 src/config.js        settings from .env
+src/context.js       which site a request belongs to: the real one or the demo
 src/db.js            schema, statuses, default packages and rules
 src/http.js          routes, JSON, static files, security headers
+src/auth.js          the admin login
+src/routes.js        the API
 src/sun.js           sunrise / sunset
 src/availability.js  which times can be booked
 src/bookings.js      hold → booked → … → delivered, undo, idempotency
+src/requests.js      "Request another time" (outside sunrise and sunset)
+src/inperson.js      booking with an emailed code, paying at the shoot
 src/payments.js      Stripe Checkout and webhook signatures
+src/zelle.js         Zelle: memo reference, "I've sent it", the signed Confirm link
 src/mail.js          every email, and the outbox
 src/media.js         receiving uploads: real-image check, size, web copies (ffmpeg)
+src/watermark.js     the watermarked proofs a client sees until the balance is paid
 src/galleries.js     client photos: add, remove/undo, the private gallery, download-all zip
-src/sitemedia.js     background photos and package card photos
+src/sitemedia.js     background photos, package card photos and portfolios
 src/clients.js       the client list, worked out from bookings
-src/jobs.js          every 15 s: expire holds, queue reminders, send email
-src/auth.js          the admin login
-src/routes.js        the API
-public/              pages (home, book, booked, prep, admin), styles.css, one script per page + common.js
+src/jobs.js          every 15 s: expire holds, queue reminders, send email, daily backup
+src/demo.js          the demo's sample data (src/packagefill.js: suggested package details)
+scripts/             fill-packages.js (one-off: fills in the packages, asks first)
+deploy/              install.sh, update.sh, the nginx file
+public/              pages, styles.css, one script per page + common.js, fonts
 test/                node --test
 ```

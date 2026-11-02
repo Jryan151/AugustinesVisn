@@ -84,6 +84,7 @@ function exifRotated(b) {
 
 /* ---------- ffmpeg (optional) ---------- */
 let ffmpegOk;
+/** Runs ffmpeg with `args`. Rejects with the end of its error output. Shared by watermark.js and demo.js. */
 function ffmpeg(args, ms = 120000) {
   return new Promise((resolve, reject) => execFile(config.ffmpegPath, args, { timeout: ms, windowsHide: true }, (e, out, err) => (e ? reject(Object.assign(e, { stderr: String(err).slice(-300) })) : resolve())));
 }
@@ -159,5 +160,4 @@ function removeFiles(dir, f) {
   for (const n of new Set([f.original, f.web, f.thumb])) if (n && /^[A-Za-z0-9_-]+(-web|-thumb)?\.(jpg|png|webp)$/.test(n)) fs.rmSync(path.join(dir, n), { force: true });
 }
 
-const _reset = () => { ffmpegOk = undefined; };
-module.exports = { storeUpload, removeFiles, dimensions, sniff, hasFfmpeg, MAX_BYTES, _reset };
+module.exports = { storeUpload, removeFiles, dimensions, sniff, hasFfmpeg, ffmpeg };

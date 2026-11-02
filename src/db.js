@@ -21,10 +21,9 @@ const { DatabaseSync } = require('node:sqlite');
 const fs = require('fs');
 const path = require('path');
 
-// The life of a booking. 'hold' lasts while the client pays; cancelled/expired/needs_refund leave the pipeline.
-const PIPELINE = ['booked', 'prepped', 'shot', 'editing', 'delivered'];
+// The life of a booking. 'hold' lasts while the client pays; cancelled, expired and needs_refund leave the pipeline.
+const PIPELINE = ['booked', 'prepped', 'shot', 'editing', 'delivered']; // paid for (or booked in person)
 const ACTIVE = ['hold'].concat(PIPELINE); // these take up a time and count toward the weekly cap
-const STATUSES = ACTIVE.concat(['cancelled', 'expired', 'needs_refund']);
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS packages (
@@ -37,8 +36,6 @@ CREATE TABLE IF NOT EXISTS packages (
   turnaround_days INTEGER NOT NULL,
   price_cents INTEGER NOT NULL,
   deposit_cents INTEGER NOT NULL,
-  bg_video TEXT NOT NULL DEFAULT '',
-  bg_poster TEXT NOT NULL DEFAULT '',
   image_json TEXT NOT NULL DEFAULT '',
   sort INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1
@@ -213,6 +210,11 @@ function open(file) {
   // An offer: a package made for one client, reached only by its private link (never listed on the site).
   if (!has('packages', 'offer')) db.exec('ALTER TABLE packages ADD COLUMN offer INTEGER NOT NULL DEFAULT 0');
   if (!has('bookings', 'balance_paid_at')) db.exec('ALTER TABLE bookings ADD COLUMN balance_paid_at TEXT; ALTER TABLE bookings ADD COLUMN balance_session_id TEXT; ALTER TABLE bookings ADD COLUMN balance_paid_by TEXT');
+  // Columns from the first release's background videos, which nothing reads any more. Dropped only while empty,
+  // so nothing is ever lost (and the daily backup keeps the old shape either way).
+  for (const col of ['bg_video', 'bg_poster']) {
+    if (has('packages', col) && !get(`SELECT 1 FROM packages WHERE ${col} != '' LIMIT 1`)) db.exec(`ALTER TABLE packages DROP COLUMN ${col}`);
+  }
   if (!get('SELECT 1 FROM packages LIMIT 1')) {
     for (const p of SEED_PACKAGES) {
       run('INSERT INTO packages (slug, name, summary, minutes, photos, turnaround_days, price_cents, deposit_cents, sort) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -255,4 +257,4 @@ function saveSetting(key, value) {
 
 const nowIso = () => new Date().toISOString();
 
-module.exports = { init, get, all, run, tx, setting, saveSetting, nowIso, PIPELINE, ACTIVE, STATUSES, DEFAULT_SETTINGS, SEED_PACKAGES };
+module.exports = { init, get, all, run, tx, setting, saveSetting, nowIso, PIPELINE, ACTIVE, DEFAULT_SETTINGS, SEED_PACKAGES };

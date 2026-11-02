@@ -98,12 +98,12 @@ function firstBackground(key) {
  * The background layer for a public page. `strong` puts a heavier veil over it, for pages with forms.
  * Only the first photo loads with the page; the others wait in data-src until the page has settled.
  */
+// One background photo: shown at once (`first`), or waiting in data-src to fade in later.
+const bgImg = (p, first) => `<img class="bg-photo${first ? ' on' : ''}" data-key="${esc(p.name)}" ${first ? 'src' : 'data-src'}="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async"${first ? ' fetchpriority="high"' : ''}>`;
+const bgLayer = (classes, imgs) => `<div class="${classes}" aria-hidden="true">${imgs}<div class="bg-veil"></div></div>`;
+
 function backgroundMarkup(strong) {
-  const photos = backgroundPhotos();
-  const imgs = photos.map((p, i) => i === 0
-    ? `<img class="bg-photo on" data-key="${esc(p.name)}" src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async" fetchpriority="high">`
-    : `<img class="bg-photo" data-key="${esc(p.name)}" data-src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async">`).join('');
-  return `<div class="bg${strong ? ' strong' : ''}" aria-hidden="true">${imgs}<div class="bg-veil"></div></div>`;
+  return bgLayer(`bg${strong ? ' strong' : ''}`, backgroundPhotos().map((p, i) => bgImg(p, i === 0)).join(''));
 }
 
 /* ---------- behind Admin: off, the site's photos, or one of them ---------- */
@@ -126,9 +126,8 @@ function saveAdminBackground(body) {
 function adminBackgroundMarkup() {
   const a = adminBackground();
   if (a.mode === 'off' || !backgroundPhotos().length) return '';
-  if (a.mode === 'site') return backgroundMarkup(true).replace('class="bg strong"', 'class="bg strong admin"');
-  const p = backgroundPhotos().find((x) => x.name === a.key);
-  return `<div class="bg strong admin" aria-hidden="true"><img class="bg-photo on" data-key="${esc(p.name)}" src="${esc(url(p.web))}" width="${p.width}" height="${p.height}" alt="" decoding="async"><div class="bg-veil"></div></div>`;
+  if (a.mode === 'site') return bgLayer('bg strong admin', backgroundPhotos().map((p, i) => bgImg(p, i === 0)).join(''));
+  return bgLayer('bg strong admin', bgImg(backgroundPhotos().find((x) => x.name === a.key), true));
 }
 
 /* ---------- package images ---------- */

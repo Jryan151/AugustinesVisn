@@ -7,7 +7,8 @@
    email (say, the 3-day reminder) can never go to a client twice.
 
    A queued email can wait (`delayMs`) before it's sent. That's how Admin's Undo works for actions that email the
-   client (deliver, cancel): the email waits 10 seconds, and Undo takes it back out before it leaves.
+   client (deliver, cancel, Zelle confirm, balance paid, time requests): the email waits 10 seconds, and Undo takes it
+   back out before it leaves.
 
    Sending: with RESEND_API_KEY set, through Resend's API. Without it, printed to the console (development).
    ===================================================================== */
@@ -113,10 +114,10 @@ function prepLocation(b) {
 
 /** Puts an email in the outbox. Returns false when it was already queued (or sent) for this booking. */
 function queue(kind, booking, { delayMs = 0 } = {}) {
+  if (db.get("SELECT 1 FROM outbox WHERE booking_id = ? AND kind = ? AND status != 'cancelled'", [booking.id, kind])) return false;
   const pkg = db.get('SELECT * FROM packages WHERE id = ?', [booking.package_id]);
   const m = compose(kind, booking, pkg);
   if (!m.to) return false; // e.g. no ADMIN_EMAIL set
-  if (db.get("SELECT 1 FROM outbox WHERE booking_id = ? AND kind = ? AND status != 'cancelled'", [booking.id, kind])) return false;
   const now = Date.now();
   db.run('INSERT INTO outbox (booking_id, kind, to_addr, subject, body, send_after, created_at) VALUES (?,?,?,?,?,?,?)',
     [booking.id, kind, m.to, m.subject, m.body, new Date(now + delayMs).toISOString(), new Date(now).toISOString()]);
@@ -193,4 +194,4 @@ async function sendDue(now) {
   return due.length;
 }
 
-module.exports = { queueNote, unqueueNote, status, queue, unqueue, processOutbox, compose, when, money, sentInTests };
+module.exports = { queueNote, unqueueNote, status, queue, unqueue, processOutbox, when, money, sentInTests };

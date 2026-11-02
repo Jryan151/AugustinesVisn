@@ -180,3 +180,40 @@ test('package order: new packages go last, saving never moves one, and the order
   assert.equal((await as('PUT', '/api/admin/packages/order', { ids: moved.slice(1) })).status, 400, 'every package, once');
   assert.equal((await call('PUT', '/api/admin/packages/order', { ids: moved })).status, 401);
 });
+
+test('the review request goes once, a week after the gallery, and only to galleries still waiting for it', async () => {
+  const slot = await freeSlot();
+  const a = await call('POST', '/api/bookings', client(slot, { email: 'review@example.com' }), { 'Idempotency-Key': key() });
+  await call('GET', a.data.checkoutUrl);
+  const b = db.get('SELECT * FROM bookings WHERE token = ?', [a.data.token]);
+  const reviews = () => db.get("SELECT COUNT(*) n FROM outbox WHERE booking_id = ? AND kind = 'review'", [b.id]).n;
+  db.run("UPDATE bookings SET status = 'delivered', gallery_url = 'https://example.com/g', delivered_at = ? WHERE id = ?", [new Date(Date.now() - 6 * 86400000).toISOString(), b.id]);
+  jobs.queueDue();
+  assert.equal(reviews(), 0, 'not before a week');
+  db.run('UPDATE bookings SET delivered_at = ? WHERE id = ?', [new Date(Date.now() - 8 * 86400000).toISOString(), b.id]);
+  jobs.queueDue(); jobs.queueDue();
+  assert.equal(reviews(), 1, 'once, however often the jobs run');
+});
+
+test('an old database loses the unused video columns only while they are empty', () => {
+  const { DatabaseSync } = require('node:sqlite');
+  const os = require('os'); const fs = require('fs'); const path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'av-old-'));
+  const make = (file, value) => {
+    const old = new DatabaseSync(file);
+    old.exec(`CREATE TABLE packages (id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '',
+      minutes INTEGER NOT NULL, photos INTEGER NOT NULL, turnaround_days INTEGER NOT NULL, price_cents INTEGER NOT NULL, deposit_cents INTEGER NOT NULL,
+      bg_video TEXT NOT NULL DEFAULT '', bg_poster TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1)`);
+    old.prepare("INSERT INTO packages (slug, name, minutes, photos, turnaround_days, price_cents, deposit_cents, bg_video) VALUES ('mine', 'Mine', 30, 10, 7, 7500, 2500, ?)").run(value);
+    old.close();
+  };
+  const cols = (file) => { const d = new DatabaseSync(file); const c = d.prepare('PRAGMA table_info(packages)').all().map((x) => x.name); const n = d.prepare('SELECT name FROM packages').all(); d.close(); return { c, n }; };
+  const empty = path.join(dir, 'empty.sqlite'); const kept = path.join(dir, 'kept.sqlite');
+  make(empty, ''); make(kept, 'clip.mp4');
+  for (const f of [empty, kept]) db.init(f);
+  assert.ok(!cols(empty).c.includes('bg_video'), 'empty: dropped');
+  assert.ok(cols(kept).c.includes('bg_video'), 'something in it: kept');
+  assert.deepEqual(cols(empty).n.map((r) => r.name), ['Mine'], 'the package itself is untouched');
+  db.init(':memory:');
+  fs.rmSync(dir, { recursive: true, force: true });
+});

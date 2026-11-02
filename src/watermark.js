@@ -15,7 +15,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
 const config = require('./config');
 const media = require('./media');
 
@@ -44,11 +43,6 @@ function filter(w, h, textFile, bandFile) {
   ].join(',');
 }
 
-function run(args) {
-  return new Promise((resolve, reject) => execFile(config.ffmpegPath, args, { timeout: 120000, windowsHide: true },
-    (e, out, err) => (e ? reject(Object.assign(e, { stderr: String(err).slice(-300) })) : resolve())));
-}
-
 /**
  * Makes the watermarked copies for a stored photo in `dir`. Returns { wm, wmThumb } (file names), or null if they
  * can't be made (no ffmpeg, or it failed).
@@ -68,7 +62,7 @@ async function make(dir, photo) {
     // The photo's real shape (sideways camera files included) comes from the stored width and height.
     for (const [file, max, q] of [[out.wm, 2000, 3], [out.wmThumb, 600, 4]]) {
       const { w, h } = fit(photo.width || 2000, photo.height || 1333, max);
-      await run(['-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-vf', filter(w, h, textFile, bandFile), '-frames:v', '1', '-q:v', String(q), path.join(dir, file)]);
+      await media.ffmpeg(['-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-vf', filter(w, h, textFile, bandFile), '-frames:v', '1', '-q:v', String(q), path.join(dir, file)]);
     }
     return out;
   } catch (e) {
@@ -89,4 +83,4 @@ async function ensure(dir, photo, save) {
   return pending.get(photo.id);
 }
 
-module.exports = { make, ensure, fit, filter, FONT };
+module.exports = { make, ensure, filter };

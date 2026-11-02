@@ -71,6 +71,8 @@ const PUBLIC_PACKAGE = 'id, slug, name, summary, minutes, photos, turnaround_day
 // A package as the public sees it: its card photo as addresses, not the stored file names.
 const publicPackage = (p) => { const out = Object.assign({}, p, { image: sitemedia.view(sitemedia.packageImage(p)) }); delete out.image_json; return out; };
 const activePackage = (slug) => db.get(`SELECT * FROM packages WHERE slug = ? AND active = 1`, [String(slug || '')]);
+// Every package and offer, for Admin, in the order the site shows them.
+const adminPackages = () => db.all('SELECT *, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count FROM packages ORDER BY sort, id').map(publicPackage);
 
 // Two copies of the same request at once (a double tap): the second waits for the first and gets the same answer.
 const inFlight = new Map();
@@ -338,7 +340,7 @@ function build() {
   r.put('/api/admin/clients/notes', admin((req, res) => { clients.saveNotes(req.body.email, req.body.notes); res.json(200, { ok: true }); }));
 
   r.get('/api/admin/settings', admin((req, res) => {
-    res.json(200, { availability: db.setting('availability'), terms: db.setting('terms'), packages: db.all('SELECT *, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count FROM packages ORDER BY sort, id').map(publicPackage) });
+    res.json(200, { availability: db.setting('availability'), terms: db.setting('terms'), packages: adminPackages() });
   }));
   r.put('/api/admin/settings', admin((req, res) => {
     if (req.body.availability) db.saveSetting('availability', cleanAvailability(req.body.availability));
@@ -353,7 +355,7 @@ function build() {
       throw new HttpError(400, 'Send every package once, in the new order.');
     }
     db.tx(() => ids.forEach((id, i) => db.run('UPDATE packages SET sort = ? WHERE id = ?', [i + 1, id])));
-    res.json(200, { packages: db.all('SELECT *, (SELECT COUNT(*) FROM portfolio pf WHERE pf.package_id = packages.id) AS portfolio_count FROM packages ORDER BY sort, id').map(publicPackage) });
+    res.json(200, { packages: adminPackages() });
   }));
   r.post('/api/admin/packages', admin((req, res) => {
     // An offer gets a link nobody could guess; it's the only way to reach it.

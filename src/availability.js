@@ -118,4 +118,4 @@ function findSlot(pkg, slotKey, now = new Date()) {
   return day.slots.find((x) => x.key === slotKey) || null;
 }
 
-module.exports = { computeDays, forPackage, findSlot, liveBookingsBetween, periodTimes, parseSlotKey, localDate, addDays, weekKey, weekday, isYmd, PERIODS };
+module.exports = { computeDays, forPackage, findSlot, liveBookingsBetween, periodTimes, parseSlotKey, localDate, addDays, weekKey, weekday, isYmd };

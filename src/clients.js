@@ -17,8 +17,8 @@ const db = require('./db');
 const mail = require('./mail');
 const { HttpError } = require('./http');
 
-// Bookings that count: paid and not cancelled.
-const COUNTED = ['booked', 'prepped', 'shot', 'editing', 'delivered'];
+// Bookings that count: paid (or booked in person) and not cancelled.
+const COUNTED = db.PIPELINE;
 
 function stageOf(bs, now) {
   if (bs.some((b) => ['booked', 'prepped'].includes(b.status) && new Date(b.end_at) > now)) return 'upcoming';

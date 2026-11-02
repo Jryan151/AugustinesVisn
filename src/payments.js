@@ -96,4 +96,4 @@ function verifyWebhook(rawBody, header, secret = config.stripeWebhookSecret, now
   try { return JSON.parse(rawBody); } catch (e) { return null; }
 }
 
-module.exports = { startBalanceCheckout, startCheckout, verifyWebhook, enabled, devMode, formEncode };
+module.exports = { startBalanceCheckout, startCheckout, verifyWebhook, enabled, devMode };
