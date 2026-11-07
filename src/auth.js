@@ -4,7 +4,12 @@
 
    The login is a signed cookie ("expiry.signature"), so there's no session table. It's HttpOnly (scripts can't read
    it), SameSite=Strict (other sites can't use it), and Secure in production. Wrong passwords are limited to 5 per
-   10 minutes per address.
+   10 minutes per address, and 30 per 10 minutes overall, so changing address doesn't buy more guesses.
+
+   The visitor's address: with TRUST_PROXY=1, only a request from nginx on this same machine (loopback) may name it,
+   in X-Real-IP (nginx sets it, after checking Cloudflare's ranges: deploy/nginx-booking.conf). Headers a visitor can
+   type themselves (CF-Connecting-IP, the start of X-Forwarded-For) are never believed, or anyone reaching the server
+   directly could claim a new address on every try.
    ===================================================================== */
 const crypto = require('crypto');
 const config = require('./config');
@@ -12,7 +17,11 @@ const { HttpError } = require('./http');
 
 const COOKIE = 'av_admin';
 const LIFETIME = 14 * 86400000;
+const WINDOW = 600000;
+const MAX_PER_IP = 5;
+const MAX_TOTAL = 30;
 const fails = new Map(); // ip → [times]
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
 const sign = (s) => crypto.createHmac('sha256', config.sessionSecret).update(s).digest('base64url');
 const sameText = (a, b) => {
@@ -37,19 +46,27 @@ function requireAdmin(req) {
 }
 
 function clientIp(req) {
-  if (config.trustProxy) {
-    const h = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-    if (h) return h;
-  }
-  return req.socket.remoteAddress || '';
+  const peer = req.socket.remoteAddress || '';
+  if (!config.trustProxy || !LOOPBACK.has(peer)) return peer;
+  const real = String(req.headers['x-real-ip'] || '').trim();
+  if (real) return real;
+  // Older nginx files don't send X-Real-IP. The LAST X-Forwarded-For entry is the one nginx added itself.
+  const chain = String(req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return chain.length ? chain[chain.length - 1] : peer;
 }
 
 function login(req, res) {
   const ip = clientIp(req);
-  const recent = (fails.get(ip) || []).filter((t) => t > Date.now() - 600000);
-  if (recent.length >= 5) throw new HttpError(429, 'Too many tries. Wait 10 minutes.');
+  const now = Date.now();
+  let total = 0;
+  for (const [k, times] of fails) {
+    const kept = times.filter((t) => t > now - WINDOW);
+    if (kept.length) { fails.set(k, kept); total += kept.length; } else fails.delete(k);
+  }
+  const recent = fails.get(ip) || [];
+  if (recent.length >= MAX_PER_IP || total >= MAX_TOTAL) throw new HttpError(429, 'Too many tries. Wait 10 minutes.');
   if (!config.adminPassword || !sameText(String(req.body.password || ''), config.adminPassword)) {
-    recent.push(Date.now()); fails.set(ip, recent);
+    recent.push(now); fails.set(ip, recent);
     throw new HttpError(401, 'That password isn’t right.');
   }
   fails.delete(ip);
@@ -63,4 +80,4 @@ function logout(req, res) {
   res.json(200, { ok: true });
 }
 
-module.exports = { isAdmin, requireAdmin, login, logout };
+module.exports = { isAdmin, requireAdmin, login, logout, clientIp, _resetFails: () => fails.clear() };
