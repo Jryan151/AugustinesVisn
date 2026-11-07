@@ -48,5 +48,16 @@ if grep -q 'client_max_body_size 1m;' "$NGINX_FILE" 2>/dev/null; then
   if nginx -t 2>/dev/null; then systemctl reload nginx; echo "  Done"; else cp /tmp/booking-nginx.bak "$NGINX_FILE"; echo "  nginx didn't accept the change, so it was put back. Uploads stay limited to 1 MB."; fi
 fi
 
+# The real visitor address for the Admin wrong-password limit (older installs passed a header anyone could fake).
+if [ -f "$NGINX_FILE" ] && ! grep -q 'X-Real-IP' "$NGINX_FILE"; then
+  echo "== Passing the visitor's real address to the app (Admin password limit)"
+  cp "$NGINX_FILE" /tmp/booking-nginx.bak
+  realip="$(grep -E '^\s*(set_real_ip_from|real_ip_header|# )' "$APP_DIR/deploy/nginx-booking.conf" | sed -n '/visitor.s real address/,/real_ip_header/p')"
+  awk -v block="$realip" '/^[[:space:]]*location \/ \{/ && !done { print block; print ""; done = 1 } { print }' "$NGINX_FILE" > /tmp/booking-nginx.new
+  sed -i 's/^\([[:space:]]*\)proxy_set_header X-Forwarded-Proto \$scheme;/&\n\1proxy_set_header X-Real-IP $remote_addr;/' /tmp/booking-nginx.new
+  cp /tmp/booking-nginx.new "$NGINX_FILE"
+  if nginx -t 2>/dev/null; then systemctl reload nginx; echo "  Done"; else cp /tmp/booking-nginx.bak "$NGINX_FILE"; echo "  nginx didn't accept the change, so it was put back. The app still uses the address nginx saw."; fi
+fi
+
 command -v ffmpeg >/dev/null || echo "Tip: 'sudo apt install -y ffmpeg' makes small web copies of uploaded photos, so pages load faster."
 echo; echo "Updated to $(as_app git -C "$APP_DIR" log -1 --format='%h %s')"
